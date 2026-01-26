@@ -40,6 +40,7 @@ public struct ContentView: View {
             handleDrop(providers)
         }
         .focusable()
+        .focusEffectDisabled()  // Hide blue focus ring
         .onKeyPress { keyPress in
             guard appState.hasVideo else { return .ignored }
 
