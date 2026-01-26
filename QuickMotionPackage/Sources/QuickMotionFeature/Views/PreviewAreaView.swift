@@ -71,6 +71,18 @@ public struct PreviewAreaView: View {
             }
             .buttonStyle(.plain)
 
+            // Loop toggle button
+            Button {
+                appState.isLooping.toggle()
+            } label: {
+                Image(systemName: appState.isLooping ? "repeat" : "repeat")
+                    .font(.system(size: 14))
+                    .frame(width: 24, height: 24)
+                    .foregroundStyle(appState.isLooping ? .primary : .tertiary)
+            }
+            .buttonStyle(.plain)
+            .help(appState.isLooping ? "Looping on" : "Looping off")
+
             // Time-based scrubber
             Slider(
                 value: Binding(

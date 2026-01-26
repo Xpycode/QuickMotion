@@ -86,6 +86,16 @@ public final class AppState {
     /// Whether preview is playing
     public var isPlaying: Bool = true
 
+    /// Whether playback should loop
+    public var isLooping: Bool = true {
+        didSet {
+            // If enabling loop while at the end, seek to start
+            if isLooping && currentTime >= duration - 0.1 && duration > 0 {
+                seek(to: 0)
+            }
+        }
+    }
+
     /// Desired playback rate (persisted across pause/play)
     public var desiredRate: Float = 1.0
 
@@ -93,6 +103,9 @@ public final class AppState {
 
     /// Time observer for periodic time updates
     private var timeObserver: Any?
+
+    /// Observer for end-of-playback (looping)
+    private var endObserver: NSObjectProtocol?
 
     // MARK: - Initialization
 
@@ -127,7 +140,9 @@ public final class AppState {
             self.sliderValue = sliderFromSpeed(10.0)
             self.desiredRate = Float(speedMultiplier)
             self.previewState = .ready
-            self.isPlaying = false  // Start paused - user must press play
+            self.isPlaying = false
+            newPlayer.pause()  // Explicitly pause - AVPlayerView auto-plays otherwise
+            setupLooping(for: newPlayer)
 
         } catch {
             self.errorMessage = error.localizedDescription
@@ -141,6 +156,7 @@ public final class AppState {
     /// Clears the current project
     public func clearProject() {
         removeTimeObserver()
+        removeEndObserver()
         player = nil
         project = nil
         previewState = .idle
@@ -247,6 +263,33 @@ public final class AppState {
         if let observer = timeObserver {
             player?.removeTimeObserver(observer)
             timeObserver = nil
+        }
+    }
+
+    /// Sets up looping - when video ends, seek back to start if looping enabled
+    private func setupLooping(for player: AVPlayer) {
+        endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: player.currentItem,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self = self else { return }
+                if self.isLooping && self.isPlaying {
+                    self.seek(to: 0)
+                    self.player?.rate = self.desiredRate
+                } else {
+                    self.isPlaying = false
+                }
+            }
+        }
+    }
+
+    /// Removes the end observer
+    private func removeEndObserver() {
+        if let observer = endObserver {
+            NotificationCenter.default.removeObserver(observer)
+            endObserver = nil
         }
     }
 
