@@ -46,4 +46,12 @@ A drop-in Swift Package for macOS (and eventually iOS) apps that provides:
 
 ---
 
+## Reverse Playback
+- Allow negative speed values for reverse timelapse effect
+- AVPlayer supports negative rates for reverse playback
+- Export would need AVMutableComposition reversed track
+- UI: extend slider left of center, or toggle button
+
+---
+
 *Add new ideas below. Move to project-specific docs when starting implementation.*

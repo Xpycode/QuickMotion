@@ -3,17 +3,20 @@ import SwiftUI
 /// Speed control slider with logarithmic scale and live feedback
 public struct SpeedSliderView: View {
     @Binding var sliderValue: Double
+    @Binding var speedMode: SpeedMode
     let speedMultiplier: Double
     let inputDuration: String?
     let outputDuration: String?
 
     public init(
         sliderValue: Binding<Double>,
+        speedMode: Binding<SpeedMode>,
         speedMultiplier: Double,
         inputDuration: String? = nil,
         outputDuration: String? = nil
     ) {
         self._sliderValue = sliderValue
+        self._speedMode = speedMode
         self.speedMultiplier = speedMultiplier
         self.inputDuration = inputDuration
         self.outputDuration = outputDuration
@@ -28,11 +31,53 @@ public struct SpeedSliderView: View {
 
                 Slider(value: $sliderValue, in: 0...1)
                     .frame(minWidth: 200)
+                    .contextMenu {
+                        Button {
+                            speedMode = .linear
+                        } label: {
+                            if speedMode == .linear {
+                                Label("Linear (±1 / ±10)", systemImage: "checkmark")
+                            } else {
+                                Text("Linear (±1 / ±10)")
+                            }
+                        }
+
+                        Button {
+                            speedMode = .multiplicative
+                        } label: {
+                            if speedMode == .multiplicative {
+                                Label("Multiplicative (×1.5 / ×2)", systemImage: "checkmark")
+                            } else {
+                                Text("Multiplicative (×1.5 / ×2)")
+                            }
+                        }
+
+                        Button {
+                            speedMode = .presets
+                        } label: {
+                            if speedMode == .presets {
+                                Label("Presets (2, 4, 8, 16...)", systemImage: "checkmark")
+                            } else {
+                                Text("Presets (2, 4, 8, 16...)")
+                            }
+                        }
+                    }
 
                 Text(formattedSpeed)
                     .font(.system(.body, design: .monospaced))
                     .frame(width: 50, alignment: .trailing)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.15), value: formattedSpeed)
             }
+
+            // Speed mode selector
+            Picker("Mode", selection: $speedMode) {
+                Text("±1").tag(SpeedMode.linear)
+                Text("×1.5").tag(SpeedMode.multiplicative)
+                Text("Presets").tag(SpeedMode.presets)
+            }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 200)
 
             // Duration feedback row
             if let input = inputDuration, let output = outputDuration {
@@ -101,6 +146,7 @@ public struct SpeedPresetsView: View {
 #Preview("Speed Slider") {
     struct PreviewWrapper: View {
         @State var value = 0.5
+        @State var speedMode: SpeedMode = .linear
 
         var speed: Double {
             2.0 * pow(50.0, value)
@@ -110,6 +156,7 @@ public struct SpeedPresetsView: View {
             VStack(spacing: 20) {
                 SpeedSliderView(
                     sliderValue: $value,
+                    speedMode: $speedMode,
                     speedMultiplier: speed,
                     inputDuration: "5:34",
                     outputDuration: "28s"

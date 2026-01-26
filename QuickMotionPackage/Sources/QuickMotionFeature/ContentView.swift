@@ -39,6 +39,24 @@ public struct ContentView: View {
             // Allow dropping anywhere when video is loaded
             handleDrop(providers)
         }
+        .focusable()
+        .onKeyPress { keyPress in
+            guard appState.hasVideo else { return .ignored }
+
+            switch keyPress.characters {
+            case "j", "J":
+                appState.decreaseSpeed(big: keyPress.modifiers.contains(.shift))
+                return .handled
+            case "k", "K":
+                appState.togglePlayPause()
+                return .handled
+            case "l", "L":
+                appState.increaseSpeed(big: keyPress.modifiers.contains(.shift))
+                return .handled
+            default:
+                return .ignored
+            }
+        }
     }
 
     // MARK: - Video Loaded View
@@ -70,6 +88,7 @@ public struct ContentView: View {
                 // Speed slider
                 SpeedSliderView(
                     sliderValue: $appState.sliderValue,
+                    speedMode: $appState.speedMode,
                     speedMultiplier: appState.speedMultiplier,
                     inputDuration: project.metadata?.formattedDuration,
                     outputDuration: project.formattedOutputDuration
