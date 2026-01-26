@@ -184,6 +184,9 @@
 			);
 			mainGroup = 8BC265532DEDD3F400F279A4;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				8B90D1502DEDD44A00FBD189 /* XCLocalSwiftPackageReference "QuickMotionPackage" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 8BC2655D2DEDD3F400F279A4 /* Products */;
 			projectDirPath = "";
@@ -322,9 +325,17 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		8B90D1502DEDD44A00FBD189 /* XCLocalSwiftPackageReference "QuickMotionPackage" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = QuickMotionPackage;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		8B90D1472DEDD44A00FBD189 /* QuickMotionFeature */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 8B90D1502DEDD44A00FBD189 /* XCLocalSwiftPackageReference "QuickMotionPackage" */;
 			productName = QuickMotionFeature;
 		};
 /* End XCSwiftPackageProductDependency section */

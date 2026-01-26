@@ -98,16 +98,8 @@ public struct ContentView: View {
                 // Speed presets
                 SpeedPresetsView(sliderValue: $appState.sliderValue)
 
-                // Bottom row: export settings + export button
+                // Bottom row: clear + export button
                 HStack {
-                    // Placeholder for export settings (Phase 3)
-                    Menu("Export Settings") {
-                        Text("Fast (HEVC)")
-                        Text("Quality (ProRes)")
-                        Text("Match Original")
-                    }
-                    .disabled(true) // Enable in Phase 3
-
                     Spacer()
 
                     Button("Clear") {
@@ -116,10 +108,9 @@ public struct ContentView: View {
                     .buttonStyle(.bordered)
 
                     Button("Export...") {
-                        // Phase 3
+                        openExportWindow()
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(true) // Enable in Phase 3
                 }
             }
             .padding()
@@ -142,6 +133,45 @@ public struct ContentView: View {
             .padding(24)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
         }
+    }
+
+    // MARK: - Export
+
+    /// Opens the export window with the current project settings
+    private func openExportWindow() {
+        guard let project = appState.project else { return }
+
+        // Create default export settings
+        let settings = ExportSettings()
+
+        // Generate output URL: same directory as source, with "_timelapse" suffix
+        let sourceURL = project.sourceURL
+        let directory = sourceURL.deletingLastPathComponent()
+        let baseName = sourceURL.deletingPathExtension().lastPathComponent
+        let outputURL = directory
+            .appendingPathComponent("\(baseName)_timelapse")
+            .appendingPathExtension(settings.fileExtension)
+
+        // Create export session
+        let session = ExportSession(
+            asset: project.asset,
+            speedMultiplier: appState.speedMultiplier,
+            settings: settings,
+            outputURL: outputURL
+        )
+
+        // Open in standalone window
+        ExportWindowController.shared.open(
+            session: session,
+            sourceFileName: project.sourceURL.lastPathComponent,
+            estimatedInputSize: fileSize(for: project.sourceURL),
+            sourceCodec: project.metadata?.codec
+        )
+    }
+
+    /// Returns the file size for a given URL
+    private func fileSize(for url: URL) -> Int64 {
+        (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
     }
 
     // MARK: - Drop Handling
