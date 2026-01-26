@@ -9,21 +9,21 @@
 
 ## Current Position
 - **Phase:** implementation
-- **Focus:** Export functionality (next)
-- **Status:** Preview refactor complete - AVPlayer.rate now used for preview
+- **Focus:** Phase 4 Polish - edge cases, UX refinement
+- **Status:** Export fully working with audio support, sandbox permissions fixed
 - **Last updated:** 2026-01-26
 
 ## Progress
 ```
-[########............] 40% - Phase 3 of 5
+[##############......] 70% - Phase 4 of 5
 ```
 
 | Phase | Status | Tasks |
 |-------|--------|-------|
 | 1. Skeleton | **done** | 4/4 |
 | 2. Preview Engine | **done** | 4/4 |
-| 3. Export | **next** | 0/3 |
-| 4. Polish | pending | 0/5 |
+| 3. Export | **done** | 4/4 |
+| 4. Polish | **in progress** | 2/5 |
 | 5. Nice-to-haves | pending | 0/3 |
 
 ## Tech Stack
@@ -33,6 +33,14 @@
 - **Distribution:** Notarized direct download, potential MAS
 
 ## Active Decisions
+- 2026-01-26: NSSavePanel required for export (sandbox only grants read on drop)
+- 2026-01-26: Audio uses `.varispeed` algorithm (fast chipmunk effect vs slow spectral)
+- 2026-01-26: Export as standalone NSWindow (not sheet) - proper sizing, floating
+- 2026-01-26: Export runs independently - user can work on next file while exporting
+- 2026-01-26: Quality presets: Fast (HEVC/.mp4), Quality (ProRes/.mov), Match Original
+- 2026-01-26: Loop toggle button (on by default)
+- 2026-01-26: J/K/L keyboard shortcuts with three speed modes (Linear/Multiplicative/Presets)
+- 2026-01-26: No auto-play on video load
 - 2025-01-25: **REVISED** Preview via AVPlayer.rate (tested smooth up to 50x on macOS 14+)
 - 2025-01-25: Export via AVMutableComposition.scaleTimeRange
 - 2025-01-25: Logarithmic speed slider (2x-100x, fine control at low end)
@@ -43,11 +51,13 @@
 None
 
 ## Key Files
-- `QuickMotionPackage/Sources/QuickMotionFeature/Models/TimelapseProject.swift` - Core model
-- `QuickMotionPackage/Sources/QuickMotionFeature/Views/ContentView.swift` - Main UI
-- `QuickMotionPackage/Sources/QuickMotionFeature/Views/PreviewAreaView.swift` - Preview display (AVPlayer-based)
-- `QuickMotionPackage/Sources/QuickMotionFeature/Views/VideoPlayerView.swift` - AVPlayerView wrapper
-- `QuickMotionPackage/Sources/QuickMotionFeature/ViewModels/AppState.swift` - App state + AVPlayer
+- `Models/TimelapseProject.swift` - Core project model
+- `Models/ExportSettings.swift` - Export configuration (quality, resolution, fps)
+- `ViewModels/AppState.swift` - App state + AVPlayer
+- `ViewModels/ExportSession.swift` - Export state machine + AVAssetExportSession
+- `Views/ContentView.swift` - Main UI
+- `Views/Export/ExportWindow.swift` - Export window container
+- `Views/Export/ExportWindowController.swift` - NSWindow management
 
 ## Reference
 - Similar app: GlueMotion (photos → timelapse)

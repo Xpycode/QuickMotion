@@ -10,6 +10,7 @@ QuickMotion - Minimal macOS timelapse video creator
 
 | Date | Focus | Outcome | Log |
 |------|-------|---------|-----|
+| 2026-01-26 | Playback + Export window | J/K/L keys, loop toggle, export window complete | [log](2026-01-26.md) |
 | 2025-01-26 | Preview refactor research | Plan ready - AVPlayer rate replaces frame extraction | [log](2025-01-26.md) |
 | 2025-01-25b | Phase 2 - Preview Engine | Complete - frame extraction, animation, scrubber | [log](2025-01-25.md) |
 | 2025-01-25a | Project setup & discovery | Directions setup, architecture decisions, research | [log](2025-01-25a.md) |
