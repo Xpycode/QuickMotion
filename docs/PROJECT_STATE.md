@@ -9,13 +9,13 @@
 
 ## Current Position
 - **Phase:** implementation
-- **Focus:** Phase 4 Polish - edge cases, UX refinement
-- **Status:** Export fully working with audio support, sandbox permissions fixed
-- **Last updated:** 2026-01-26
+- **Focus:** Phase 4 Polish - format testing, final polish
+- **Status:** Window position persistence, error handling complete
+- **Last updated:** 2026-01-27
 
 ## Progress
 ```
-[##############......] 70% - Phase 4 of 5
+[################....] 80% - Phase 4 of 5
 ```
 
 | Phase | Status | Tasks |
@@ -23,7 +23,7 @@
 | 1. Skeleton | **done** | 4/4 |
 | 2. Preview Engine | **done** | 4/4 |
 | 3. Export | **done** | 4/4 |
-| 4. Polish | **in progress** | 2/5 |
+| 4. Polish | **in progress** | 4/5 |
 | 5. Nice-to-haves | pending | 0/3 |
 
 ## Tech Stack
@@ -33,6 +33,8 @@
 - **Distribution:** Notarized direct download, potential MAS
 
 ## Active Decisions
+- 2026-01-27: Window positions persist via NSWindow.setFrameAutosaveName
+- 2026-01-27: Pre-flight disk space check with 10% buffer + friendly error messages
 - 2026-01-26: NSSavePanel required for export (sandbox only grants read on drop)
 - 2026-01-26: Audio uses `.varispeed` algorithm (fast chipmunk effect vs slow spectral)
 - 2026-01-26: Export as standalone NSWindow (not sheet) - proper sizing, floating
