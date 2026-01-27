@@ -120,6 +120,13 @@ public final class ExportSession: Identifiable {
         accessingSecurityScopedResource = outputURL.startAccessingSecurityScopedResource()
 
         do {
+            // Pre-flight check: verify sufficient disk space
+            let estimatedSize = settings.estimatedFileSize(
+                inputSize: await estimateSourceSize(),
+                speedMultiplier: speedMultiplier
+            )
+            try checkDiskSpace(estimatedSize: estimatedSize)
+
             // Create composition and configure export
             let (_, export) = try await prepareExport()
 
@@ -156,7 +163,7 @@ public final class ExportSession: Identifiable {
                 state = .cancelled
 
             case .failed:
-                let errorMessage = export.error?.localizedDescription ?? "Unknown export error"
+                let errorMessage = mapExportError(export.error)
                 cleanupOnFailure()
                 stopSecurityScopedAccess()
                 state = .failed(error: errorMessage)
@@ -316,6 +323,127 @@ public final class ExportSession: Identifiable {
             accessingSecurityScopedResource = false
         }
     }
+
+    // MARK: - Source Size Estimation
+
+    /// Estimates the source file size for disk space calculations
+    /// - Returns: Estimated source file size in bytes
+    private func estimateSourceSize() async -> Int64 {
+        // Try to get actual file size if source is a URL asset
+        if let urlAsset = sourceAsset as? AVURLAsset {
+            let fileURL = urlAsset.url
+            if let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+               let fileSize = attributes[.size] as? Int64 {
+                return fileSize
+            }
+        }
+
+        // Fallback: estimate based on duration and typical bitrate
+        // Use conservative estimate: 20 Mbps for HD video
+        do {
+            let duration = try await sourceAsset.load(.duration)
+            let seconds = CMTimeGetSeconds(duration)
+            let estimatedBitrate: Double = 20_000_000 // 20 Mbps
+            return Int64(seconds * estimatedBitrate / 8)
+        } catch {
+            // Last resort: assume 500 MB
+            return 500_000_000
+        }
+    }
+
+    // MARK: - Disk Space Checking
+
+    /// Checks if there's enough disk space for the estimated output file
+    /// - Parameter estimatedSize: Estimated output file size in bytes
+    /// - Throws: ExportError.insufficientDiskSpace if not enough space
+    private func checkDiskSpace(estimatedSize: Int64) throws {
+        let directory = outputURL.deletingLastPathComponent()
+
+        do {
+            let resourceValues = try directory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+
+            // Use volumeAvailableCapacityForImportantUsage which accounts for purgeable space
+            if let availableCapacity = resourceValues.volumeAvailableCapacityForImportantUsage {
+                // Add 10% buffer for safety
+                let requiredSpace = Int64(Double(estimatedSize) * 1.1)
+
+                if availableCapacity < requiredSpace {
+                    throw ExportError.insufficientDiskSpace(
+                        required: requiredSpace,
+                        available: availableCapacity
+                    )
+                }
+            }
+        } catch let error as ExportError {
+            throw error
+        } catch {
+            // If we can't check disk space, proceed anyway and let the export fail naturally
+            // This is better than blocking exports when the check fails
+        }
+    }
+
+    // MARK: - Error Message Mapping
+
+    /// Maps AVAssetExportSession errors to user-friendly messages
+    /// - Parameter error: The original error from AVAssetExportSession
+    /// - Returns: A user-friendly error message
+    private func mapExportError(_ error: Error?) -> String {
+        guard let error = error else {
+            return "Export failed for an unknown reason"
+        }
+
+        let nsError = error as NSError
+
+        // Map common AVFoundation error codes to friendly messages
+        switch nsError.domain {
+        case AVFoundationErrorDomain:
+            switch nsError.code {
+            case AVError.diskFull.rawValue:
+                return "Disk is full. Free up space and try again."
+            case AVError.outOfMemory.rawValue:
+                return "Not enough memory. Try closing other apps."
+            case AVError.contentIsProtected.rawValue:
+                return "This video is copy-protected and cannot be exported."
+            case AVError.exportFailed.rawValue:
+                // Check for underlying errors
+                if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+                    return mapUnderlyingError(underlying)
+                }
+                return "Export failed. The video format may not be supported."
+            case AVError.decodeFailed.rawValue:
+                return "Could not decode the video. The file may be corrupted."
+            default:
+                break
+            }
+        case NSCocoaErrorDomain:
+            switch nsError.code {
+            case NSFileWriteNoPermissionError:
+                return "Permission denied. Try saving to a different location."
+            case NSFileWriteOutOfSpaceError:
+                return "Disk is full. Free up space and try again."
+            case NSFileWriteVolumeReadOnlyError:
+                return "Cannot write to this location. The disk may be read-only."
+            default:
+                break
+            }
+        default:
+            break
+        }
+
+        // Fallback to localized description
+        return error.localizedDescription
+    }
+
+    /// Maps underlying errors to friendly messages
+    private func mapUnderlyingError(_ error: NSError) -> String {
+        // Common underlying error patterns
+        if error.domain == NSOSStatusErrorDomain {
+            // OSStatus errors from Core Media/Video Toolbox
+            return "Video encoding failed. Try a different quality setting."
+        }
+
+        return error.localizedDescription
+    }
 }
 
 // MARK: - Export Errors
@@ -325,6 +453,9 @@ public enum ExportError: LocalizedError {
     case failedToCreateVideoTrack
     case noVideoTrackInSource
     case failedToCreateExportSession
+    case insufficientDiskSpace(required: Int64, available: Int64)
+    case permissionDenied(path: String)
+    case diskWriteError(underlying: String)
 
     public var errorDescription: String? {
         switch self {
@@ -334,6 +465,16 @@ public enum ExportError: LocalizedError {
             return "Source video does not contain a video track"
         case .failedToCreateExportSession:
             return "Failed to create export session with the selected preset"
+        case .insufficientDiskSpace(let required, let available):
+            let formatter = ByteCountFormatter()
+            formatter.countStyle = .file
+            let requiredStr = formatter.string(fromByteCount: required)
+            let availableStr = formatter.string(fromByteCount: available)
+            return "Not enough disk space. Need \(requiredStr), but only \(availableStr) available."
+        case .permissionDenied(let path):
+            return "Permission denied writing to \"\(path)\". Try choosing a different location."
+        case .diskWriteError(let underlying):
+            return "Could not write file: \(underlying)"
         }
     }
 }
