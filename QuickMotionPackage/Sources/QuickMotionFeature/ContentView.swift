@@ -41,6 +41,7 @@ public struct ContentView: View {
         }
         .focusable()
         .focusEffectDisabled()  // Hide blue focus ring
+        .windowFrameAutosaveName("MainWindow")
         .onKeyPress { keyPress in
             guard appState.hasVideo else { return .ignored }
 

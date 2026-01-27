@@ -51,11 +51,19 @@ public final class ExportWindowController {
 
         window.title = "Export Timelapse"
         window.contentView = hostingView
-        window.center()
         window.isReleasedWhenClosed = false
 
         // Make it a proper panel that floats above
         window.level = .floating
+
+        // Restore saved position, or center if first launch
+        if !window.setFrameAutosaveName("ExportWindow") {
+            // Frame autosave name already set (shouldn't happen with singleton)
+            window.center()
+        } else if window.frame.origin == .zero {
+            // First launch - no saved position yet
+            window.center()
+        }
 
         self.window = window
         window.makeKeyAndOrderFront(nil)
