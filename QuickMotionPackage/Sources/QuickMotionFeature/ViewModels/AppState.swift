@@ -64,6 +64,33 @@ public final class AppState {
     /// Whether to show the error alert
     public var showError = false
 
+    // MARK: - Trim Points
+
+    /// IN point for trimming (seconds from start)
+    public var inPoint: Double? {
+        didSet {
+            project?.inPoint = inPoint
+            updateTrimBoundaries()
+        }
+    }
+
+    /// OUT point for trimming (seconds from start)
+    public var outPoint: Double? {
+        didSet {
+            project?.outPoint = outPoint
+            updateTrimBoundaries()
+        }
+    }
+
+    /// Effective IN point (0 if not set)
+    public var effectiveInPoint: Double { inPoint ?? 0 }
+
+    /// Effective OUT point (duration if not set)
+    public var effectiveOutPoint: Double { outPoint ?? duration }
+
+    /// Whether any trim points are set
+    public var hasTrimPoints: Bool { inPoint != nil || outPoint != nil }
+
     // MARK: - Preview State
 
     public enum PreviewState {
@@ -89,9 +116,10 @@ public final class AppState {
     /// Whether playback should loop
     public var isLooping: Bool = true {
         didSet {
-            // If enabling loop while at the end, seek to start
-            if isLooping && currentTime >= duration - 0.1 && duration > 0 {
-                seek(to: 0)
+            // If enabling loop while at the end (or OUT point), seek to IN
+            let endPoint = effectiveOutPoint
+            if isLooping && currentTime >= endPoint - 0.1 && duration > 0 {
+                seek(to: effectiveInPoint)
             }
         }
     }
@@ -106,6 +134,9 @@ public final class AppState {
 
     /// Observer for end-of-playback (looping)
     private var endObserver: NSObjectProtocol?
+
+    /// Boundary observer for OUT point (trim looping)
+    private var outPointObserver: Any?
 
     // MARK: - Initialization
 
@@ -157,12 +188,23 @@ public final class AppState {
     public func clearProject() {
         removeTimeObserver()
         removeEndObserver()
+        removeOutPointObserver()
         player = nil
         project = nil
         previewState = .idle
         sliderValue = 0.5
         currentTime = 0
         duration = 0
+        inPoint = nil
+        outPoint = nil
+    }
+
+    /// Removes the OUT point boundary observer
+    private func removeOutPointObserver() {
+        if let observer = outPointObserver {
+            player?.removeTimeObserver(observer)
+            outPointObserver = nil
+        }
     }
 
     // MARK: - Playback Control
@@ -179,10 +221,41 @@ public final class AppState {
         player?.rate = 0
     }
 
-    /// Seeks to a specific time in seconds
+    /// Seeks to a specific time in seconds (clamped to trim bounds if set)
     public func seek(to time: Double) {
-        let cmTime = CMTime(seconds: time, preferredTimescale: 600)
+        let clampedTime = hasTrimPoints
+            ? max(effectiveInPoint, min(effectiveOutPoint, time))
+            : time
+        let cmTime = CMTime(seconds: clampedTime, preferredTimescale: 600)
         player?.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+
+    // MARK: - Trim Point Actions
+
+    /// Sets IN point at current playback time
+    public func setInPoint() {
+        // Ensure IN is before OUT (if OUT is set)
+        if let out = outPoint, currentTime >= out {
+            inPoint = max(0, out - 0.1)
+        } else {
+            inPoint = currentTime
+        }
+    }
+
+    /// Sets OUT point at current playback time
+    public func setOutPoint() {
+        // Ensure OUT is after IN (if IN is set)
+        if let inPt = inPoint, currentTime <= inPt {
+            outPoint = min(duration, inPt + 0.1)
+        } else {
+            outPoint = currentTime
+        }
+    }
+
+    /// Clears both trim points, restoring full video access
+    public func clearTrimPoints() {
+        inPoint = nil
+        outPoint = nil
     }
 
     // MARK: - Speed Adjustment (Keyboard)
@@ -266,7 +339,7 @@ public final class AppState {
         }
     }
 
-    /// Sets up looping - when video ends, seek back to start if looping enabled
+    /// Sets up looping - when video ends, seek back to IN point if looping enabled
     private func setupLooping(for player: AVPlayer) {
         endObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
@@ -276,12 +349,59 @@ public final class AppState {
             Task { @MainActor in
                 guard let self = self else { return }
                 if self.isLooping && self.isPlaying {
-                    self.seek(to: 0)
+                    self.seek(to: self.effectiveInPoint)
                     self.player?.rate = self.desiredRate
                 } else {
                     self.isPlaying = false
                 }
             }
+        }
+    }
+
+    /// Updates playback boundaries when trim points change
+    private func updateTrimBoundaries() {
+        guard let player = player, let item = player.currentItem else { return }
+
+        // Remove existing OUT point observer
+        if let observer = outPointObserver {
+            player.removeTimeObserver(observer)
+            outPointObserver = nil
+        }
+
+        // Set forward playback end time (player auto-stops here)
+        if let out = outPoint {
+            item.forwardPlaybackEndTime = CMTime(seconds: out, preferredTimescale: 600)
+
+            // Add boundary observer for looping at OUT point
+            let outTime = CMTime(seconds: out, preferredTimescale: 600)
+            outPointObserver = player.addBoundaryTimeObserver(
+                forTimes: [NSValue(time: outTime)],
+                queue: .main
+            ) { [weak self] in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    if self.isLooping && self.isPlaying {
+                        self.seek(to: self.effectiveInPoint)
+                        self.player?.rate = self.desiredRate
+                    } else {
+                        self.pause()
+                    }
+                }
+            }
+        } else {
+            item.forwardPlaybackEndTime = .invalid
+        }
+
+        // Set reverse playback end time
+        if let inPt = inPoint {
+            item.reversePlaybackEndTime = CMTime(seconds: inPt, preferredTimescale: 600)
+        } else {
+            item.reversePlaybackEndTime = .invalid
+        }
+
+        // If current time is outside new bounds, seek to IN point
+        if currentTime < effectiveInPoint || currentTime > effectiveOutPoint {
+            seek(to: effectiveInPoint)
         }
     }
 

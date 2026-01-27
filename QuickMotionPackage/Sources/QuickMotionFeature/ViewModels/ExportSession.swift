@@ -55,6 +55,12 @@ public final class ExportSession: Identifiable {
     /// Destination URL for exported file
     public var outputURL: URL
 
+    /// Optional IN point for trimming (seconds from start)
+    public let inPoint: Double?
+
+    /// Optional OUT point for trimming (seconds from start)
+    public let outPoint: Double?
+
     // MARK: - Observable State
 
     /// Current state of the export
@@ -91,16 +97,22 @@ public final class ExportSession: Identifiable {
     ///   - speedMultiplier: Speed factor for timelapse (2x-100x)
     ///   - settings: Export configuration
     ///   - outputURL: Destination file URL
+    ///   - inPoint: Optional trim IN point (seconds)
+    ///   - outPoint: Optional trim OUT point (seconds)
     public init(
         asset: AVAsset,
         speedMultiplier: Double,
         settings: ExportSettings,
-        outputURL: URL
+        outputURL: URL,
+        inPoint: Double? = nil,
+        outPoint: Double? = nil
     ) {
         self.sourceAsset = asset
         self.speedMultiplier = speedMultiplier
         self.settings = settings
         self.outputURL = outputURL
+        self.inPoint = inPoint
+        self.outPoint = outPoint
     }
 
     // MARK: - Public Methods
@@ -204,12 +216,21 @@ public final class ExportSession: Identifiable {
         }
 
         // Load duration and preferred transform
-        let duration = try await sourceAsset.load(.duration)
+        let fullDuration = try await sourceAsset.load(.duration)
         let preferredTransform = try await sourceVideoTrack.load(.preferredTransform)
 
-        // Insert full video into composition
+        // Calculate effective time range (using trim points if set)
+        let effectiveStart = inPoint ?? 0
+        let effectiveEnd = outPoint ?? fullDuration.seconds
+        let trimmedDuration = effectiveEnd - effectiveStart
+
+        let startTime = CMTime(seconds: effectiveStart, preferredTimescale: fullDuration.timescale)
+        let durationTime = CMTime(seconds: trimmedDuration, preferredTimescale: fullDuration.timescale)
+        let timeRange = CMTimeRange(start: startTime, duration: durationTime)
+
+        // Insert trimmed video into composition
         try videoTrack.insertTimeRange(
-            CMTimeRange(start: .zero, duration: duration),
+            timeRange,
             of: sourceVideoTrack,
             at: .zero
         )
@@ -217,7 +238,7 @@ public final class ExportSession: Identifiable {
         // Preserve video orientation
         videoTrack.preferredTransform = preferredTransform
 
-        // Optionally include audio
+        // Optionally include audio (also trimmed)
         if settings.includeAudio {
             let audioTracks = try await sourceAsset.loadTracks(withMediaType: .audio)
             if let sourceAudioTrack = audioTracks.first,
@@ -226,7 +247,7 @@ public final class ExportSession: Identifiable {
                    preferredTrackID: kCMPersistentTrackID_Invalid
                ) {
                 try audioTrack.insertTimeRange(
-                    CMTimeRange(start: .zero, duration: duration),
+                    timeRange,
                     of: sourceAudioTrack,
                     at: .zero
                 )
@@ -235,9 +256,9 @@ public final class ExportSession: Identifiable {
 
         // Scale time for timelapse effect
         // Speed multiplier of 10x means duration becomes 1/10th
-        let scaledDuration = CMTimeMultiplyByFloat64(duration, multiplier: 1.0 / speedMultiplier)
+        let scaledDuration = CMTimeMultiplyByFloat64(durationTime, multiplier: 1.0 / speedMultiplier)
         composition.scaleTimeRange(
-            CMTimeRange(start: .zero, duration: duration),
+            CMTimeRange(start: .zero, duration: durationTime),
             toDuration: scaledDuration
         )
 

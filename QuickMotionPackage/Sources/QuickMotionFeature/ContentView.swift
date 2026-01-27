@@ -55,6 +55,15 @@ public struct ContentView: View {
             case "l", "L":
                 appState.increaseSpeed(big: keyPress.modifiers.contains(.shift))
                 return .handled
+            case "i", "I":
+                appState.setInPoint()
+                return .handled
+            case "o", "O":
+                appState.setOutPoint()
+                return .handled
+            case "x", "X":
+                appState.clearTrimPoints()
+                return .handled
             default:
                 return .ignored
             }
@@ -87,12 +96,12 @@ public struct ContentView: View {
 
             // Controls area
             VStack(spacing: 16) {
-                // Speed slider
+                // Speed slider (shows trimmed duration when trim points are set)
                 SpeedSliderView(
                     sliderValue: $appState.sliderValue,
                     speedMode: $appState.speedMode,
                     speedMultiplier: appState.speedMultiplier,
-                    inputDuration: project.metadata?.formattedDuration,
+                    inputDuration: effectiveInputDuration(for: project),
                     outputDuration: project.formattedOutputDuration
                 )
 
@@ -153,12 +162,14 @@ public struct ContentView: View {
             .appendingPathComponent("\(baseName)_timelapse")
             .appendingPathExtension(settings.fileExtension)
 
-        // Create export session
+        // Create export session (with trim points if set)
         let session = ExportSession(
             asset: project.asset,
             speedMultiplier: appState.speedMultiplier,
             settings: settings,
-            outputURL: outputURL
+            outputURL: outputURL,
+            inPoint: appState.inPoint,
+            outPoint: appState.outPoint
         )
 
         // Open in standalone window
@@ -171,6 +182,35 @@ public struct ContentView: View {
     }
 
     /// Returns the file size for a given URL
+    /// Returns formatted input duration (trimmed if trim points are set, full otherwise)
+    private func effectiveInputDuration(for project: TimelapseProject) -> String? {
+        guard let metadata = project.metadata else { return nil }
+
+        if appState.hasTrimPoints {
+            // Show trimmed duration
+            let trimmedSeconds = appState.effectiveOutPoint - appState.effectiveInPoint
+            return formatDuration(trimmedSeconds)
+        } else {
+            // Show full duration
+            return metadata.formattedDuration
+        }
+    }
+
+    /// Formats seconds as "M:SS" or "H:MM:SS"
+    private func formatDuration(_ seconds: Double) -> String {
+        guard seconds.isFinite && seconds >= 0 else { return "0:00" }
+        let totalSeconds = Int(seconds)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        } else {
+            return String(format: "%d:%02d", minutes, secs)
+        }
+    }
+
     private func fileSize(for url: URL) -> Int64 {
         (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
     }
