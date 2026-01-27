@@ -260,7 +260,9 @@
 			baseConfigurationReferenceAnchor = 8B90D1BC2DEE373300FBD189 /* Config */;
 			baseConfigurationReferenceRelativePath = Debug.xcconfig;
 			buildSettings = {
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = FDMSRXXN73;
 				INFOPLIST_KEY_CFBundleDisplayName = "$(PRODUCT_DISPLAY_NAME)";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -270,7 +272,9 @@
 			baseConfigurationReferenceAnchor = 8B90D1BC2DEE373300FBD189 /* Config */;
 			baseConfigurationReferenceRelativePath = Release.xcconfig;
 			buildSettings = {
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = FDMSRXXN73;
 				INFOPLIST_KEY_CFBundleDisplayName = "$(PRODUCT_DISPLAY_NAME)";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
