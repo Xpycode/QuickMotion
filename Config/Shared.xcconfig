@@ -8,7 +8,7 @@
 // ==========================================
 PRODUCT_NAME = QuickMotion
 PRODUCT_DISPLAY_NAME = QuickMotion
-PRODUCT_BUNDLE_IDENTIFIER = com.xpycode.QuickMotion
+PRODUCT_BUNDLE_IDENTIFIER = com.lucesumbrarum.quickmotion
 MARKETING_VERSION = 1.0
 CURRENT_PROJECT_VERSION = 1
 
