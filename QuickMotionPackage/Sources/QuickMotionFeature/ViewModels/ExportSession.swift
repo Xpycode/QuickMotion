@@ -224,6 +224,14 @@ public final class ExportSession: Identifiable {
         let effectiveEnd = outPoint ?? fullDuration.seconds
         let trimmedDuration = effectiveEnd - effectiveStart
 
+        // Validate time range
+        guard effectiveEnd > effectiveStart else {
+            throw ExportError.invalidTimeRange("Out point must be after in point")
+        }
+        guard trimmedDuration > 0.1 else {
+            throw ExportError.invalidTimeRange("Selected duration too short (minimum 0.1 seconds)")
+        }
+
         let startTime = CMTime(seconds: effectiveStart, preferredTimescale: fullDuration.timescale)
         let durationTime = CMTime(seconds: trimmedDuration, preferredTimescale: fullDuration.timescale)
         let timeRange = CMTimeRange(start: startTime, duration: durationTime)
@@ -477,6 +485,7 @@ public enum ExportError: LocalizedError {
     case insufficientDiskSpace(required: Int64, available: Int64)
     case permissionDenied(path: String)
     case diskWriteError(underlying: String)
+    case invalidTimeRange(String)
 
     public var errorDescription: String? {
         switch self {
@@ -496,6 +505,8 @@ public enum ExportError: LocalizedError {
             return "Permission denied writing to \"\(path)\". Try choosing a different location."
         case .diskWriteError(let underlying):
             return "Could not write file: \(underlying)"
+        case .invalidTimeRange(let message):
+            return message
         }
     }
 }
