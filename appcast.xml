@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>QuickMotion Updates</title>
+        <link>https://github.com/Xpycode/QuickMotion</link>
+        <description>Most recent changes with links to updates.</description>
+        <language>en</language>
+
+        <!-- Add new releases here (newest first) -->
+
+        <!--
+        <item>
+            <title>Version 1.0</title>
+            <pubDate>Mon, 27 Jan 2026 00:00:00 +0000</pubDate>
+            <sparkle:version>1.0</sparkle:version>
+            <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/Xpycode/QuickMotion/releases/download/v1.0/QuickMotion-1.0.zip"
+                sparkle:edSignature="SIGNATURE_HERE"
+                length="FILE_SIZE_HERE"
+                type="application/octet-stream"
+            />
+        </item>
+        -->
+
+    </channel>
+</rss>

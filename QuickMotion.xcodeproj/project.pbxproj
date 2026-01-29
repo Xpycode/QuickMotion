@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		232D0C6B2F29073100DD3823 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 232D0C6A2F29073100DD3823 /* Sparkle */; };
 		8B90D1482DEDD44A00FBD189 /* QuickMotionFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 8B90D1472DEDD44A00FBD189 /* QuickMotionFeature */; };
 /* End PBXBuildFile section */
 
@@ -65,6 +66,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8B90D1482DEDD44A00FBD189 /* QuickMotionFeature in Frameworks */,
+				232D0C6B2F29073100DD3823 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -127,6 +129,7 @@
 			name = QuickMotion;
 			packageProductDependencies = (
 				8B90D1472DEDD44A00FBD189 /* QuickMotionFeature */,
+				232D0C6A2F29073100DD3823 /* Sparkle */,
 			);
 			productName = QuickMotion;
 			productReference = 8BC2655C2DEDD3F400F279A4 /* QuickMotion.app */;
@@ -186,6 +189,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				8B90D1502DEDD44A00FBD189 /* XCLocalSwiftPackageReference "QuickMotionPackage" */,
+				232D0C692F29073100DD3823 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 8BC2655D2DEDD3F400F279A4 /* Products */;
@@ -413,7 +417,23 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		232D0C692F29073100DD3823 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.8.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
+		232D0C6A2F29073100DD3823 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 232D0C692F29073100DD3823 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
 		8B90D1472DEDD44A00FBD189 /* QuickMotionFeature */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 8B90D1502DEDD44A00FBD189 /* XCLocalSwiftPackageReference "QuickMotionPackage" */;

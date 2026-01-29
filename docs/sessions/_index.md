@@ -10,6 +10,7 @@ QuickMotion - Minimal macOS timelapse video creator
 
 | Date | Focus | Outcome | Log |
 |------|-------|---------|-----|
+| 2026-01-29 | Sparkle Auto-Updates | Full implementation - updater, menu item, signing script | [log](2026-01-29.md) |
 | 2026-01-27 | Phase 4 + Trim Feature | IN/OUT trim points, yellow overlay, export integration | [log](2026-01-27.md) |
 | 2026-01-26 | Playback + Export window | J/K/L keys, loop toggle, export window complete | [log](2026-01-26.md) |
 | 2025-01-26 | Preview refactor research | Plan ready - AVPlayer rate replaces frame extraction | [log](2025-01-26.md) |

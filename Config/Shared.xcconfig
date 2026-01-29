@@ -32,3 +32,9 @@ ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 // ==========================================
 // AI agents can modify Config/QuickMotion.entitlements to add capabilities
 CODE_SIGN_ENTITLEMENTS = Config/QuickMotion.entitlements
+
+// ==========================================
+// Sparkle Auto-Updates
+// ==========================================
+INFOPLIST_KEY_SUFeedURL = https://raw.githubusercontent.com/Xpycode/QuickMotion/main/appcast.xml
+INFOPLIST_KEY_SUPublicEDKey = o388Mk7QoQjHQ7PBDGrTQ13HkqvO1nyzkfcnmfVumUQ=
