@@ -9,8 +9,6 @@ public enum ExportQuality: String, CaseIterable, Sendable {
     case fast = "Fast (HEVC)"
     /// ProRes encoding - larger file size, best quality for editing
     case quality = "Quality (ProRes)"
-    /// Match the original video's codec
-    case matchOriginal = "Match Original"
 }
 
 // MARK: - Export Resolution
@@ -38,6 +36,7 @@ public enum ExportFrameRate: String, CaseIterable, Sendable {
     /// 60 fps - smooth
     case fps60 = "60 fps"
 
+    // TODO: v1.1 - Implement AVMutableVideoComposition for frame rate control
     /// Numeric frame rate value, nil means match source
     public var frameRate: Float? {
         switch self {
@@ -90,7 +89,7 @@ extension ExportSettings {
     /// Returns the appropriate AVAssetExportPresetName for the current settings
     public var avExportPreset: String {
         switch quality {
-        case .fast, .matchOriginal:
+        case .fast:
             // HEVC presets based on resolution
             switch resolution {
             case .match:
@@ -118,7 +117,7 @@ extension ExportSettings {
         switch quality {
         case .fast:
             return .mp4
-        case .quality, .matchOriginal:
+        case .quality:
             return .mov
         }
     }
@@ -128,7 +127,7 @@ extension ExportSettings {
         switch quality {
         case .fast:
             return "mp4"
-        case .quality, .matchOriginal:
+        case .quality:
             return "mov"
         }
     }
@@ -163,10 +162,6 @@ extension ExportSettings {
             // ProRes 422 is roughly 8-15x larger than HEVC for the same content
             // Using 8.0 as a conservative multiplier
             baseEstimate = Double(inputSize) / speedMultiplier * 8.0
-
-        case .matchOriginal:
-            // Passthrough with slight overhead for container/muxing
-            baseEstimate = Double(inputSize) / speedMultiplier * 0.9
         }
 
         // Apply resolution scaling factor

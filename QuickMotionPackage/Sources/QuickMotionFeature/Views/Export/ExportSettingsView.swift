@@ -158,36 +158,6 @@ public struct ExportSettingsView: View {
             return "HEVC, .mp4"
         case .quality:
             return "ProRes, .mov"
-        case .matchOriginal:
-            let codecName = displayName(forCodec: sourceCodec)
-            return "\(codecName), .mov"
-        }
-    }
-
-    /// Maps FourCC codec codes to human-readable display names
-    private func displayName(forCodec codec: String?) -> String {
-        guard let codec = codec else { return "Original codec" }
-
-        switch codec.lowercased() {
-        // H.264 / AVC variants
-        case "avc1", "avc2", "avc3", "avc4":
-            return "H.264"
-        // HEVC / H.265 variants
-        case "hvc1", "hev1":
-            return "HEVC"
-        // ProRes variants
-        case "ap4h", "ap4x":
-            return "ProRes 4444"
-        case "apch":
-            return "ProRes 422 HQ"
-        case "apcn":
-            return "ProRes 422"
-        case "apco":
-            return "ProRes 422 Proxy"
-        case "apcs":
-            return "ProRes 422 LT"
-        default:
-            return codec
         }
     }
 
@@ -218,17 +188,17 @@ public struct ExportSettingsView: View {
                     .frame(width: 150)
                 }
 
+                // Note: Resolution only applies to HEVC quality
                 GridRow {
-                    Text("Frame Rate:")
+                    Text("")
                         .frame(width: 80, alignment: .trailing)
-                    Picker("Frame Rate", selection: $settings.frameRate) {
-                        ForEach(ExportFrameRate.allCases, id: \.self) { frameRate in
-                            Text(frameRate.rawValue).tag(frameRate)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 150)
+                    Text("Resolution applies to Fast (HEVC) only")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
+
+                // Frame rate picker hidden - not currently functional
+                // TODO: v1.1 - Implement AVMutableVideoComposition for frame rate control
             }
         }
     }
