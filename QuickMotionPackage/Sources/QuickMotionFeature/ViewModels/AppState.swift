@@ -161,6 +161,9 @@ public final class AppState {
             let durationValue = try await asset.load(.duration)
             self.duration = durationValue.seconds
 
+            // Clean up existing player before creating new one
+            cleanupCurrentPlayer()
+
             // Create player
             let newPlayer = AVPlayer(playerItem: playerItem)
             self.player = newPlayer
@@ -182,6 +185,14 @@ public final class AppState {
         }
 
         isLoading = false
+    }
+
+    /// Cleans up observers and references for the current player before loading a new video
+    private func cleanupCurrentPlayer() {
+        removeTimeObserver()
+        removeEndObserver()
+        removeOutPointObserver()
+        player = nil
     }
 
     /// Clears the current project
