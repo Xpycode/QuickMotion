@@ -9,9 +9,9 @@
 
 ## Current Position
 - **Phase:** implementation
-- **Focus:** Passthrough export for fast timelapse
-- **Status:** Speed >2x uses passthrough (keyframes only, I/O bound ~11min/250GB)
-- **Last updated:** 2026-01-30
+- **Focus:** Polish and bug fixes
+- **Status:** Multiple concurrent exports, fixed permission errors
+- **Last updated:** 2026-01-31
 
 ## Progress
 ```
@@ -37,8 +37,9 @@
 - 2026-01-27: Pre-flight disk space check with 10% buffer + friendly error messages
 - 2026-01-26: NSSavePanel required for export (sandbox only grants read on drop)
 - 2026-01-26: Audio uses `.varispeed` algorithm (fast chipmunk effect vs slow spectral)
-- 2026-01-26: Export as standalone NSWindow (not sheet) - proper sizing, floating
-- 2026-01-26: Export runs independently - user can work on next file while exporting
+- 2026-01-31: Export window normal level (removed .floating - was above all apps)
+- 2026-01-31: Multiple concurrent export windows (UUID-tracked, cascaded positioning)
+- 2026-01-31: Force .mov extension for passthrough exports (speed > 2x) - sandbox permission fix
 - 2026-01-30: Passthrough export for speed >2x (keyframes only, I/O bound, no FFmpeg)
 - 2026-01-26: Quality presets: Fast (HEVC/.mp4), Quality (ProRes/.mov)
 - 2026-01-26: Loop toggle button (on by default)
