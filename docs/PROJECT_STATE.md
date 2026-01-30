@@ -9,8 +9,8 @@
 
 ## Current Position
 - **Phase:** implementation
-- **Focus:** Frame decimation export implemented
-- **Status:** Fast export via AVAssetReader/Writer for speed >2x (expected ~10x speedup)
+- **Focus:** Passthrough export for fast timelapse
+- **Status:** Speed >2x uses passthrough (keyframes only, I/O bound ~11min/250GB)
 - **Last updated:** 2026-01-30
 
 ## Progress
@@ -29,7 +29,7 @@
 ## Tech Stack
 - **Platform:** macOS 14+, SwiftUI
 - **Video:** AVFoundation (AVPlayer.rate for preview)
-- **Export:** FrameDecimationExporter (AVAssetReader/Writer) for speed >2x, AVAssetExportSession fallback
+- **Export:** PassthroughExporter (keyframes, no re-encode) for speed >2x, AVAssetExportSession for ≤2x
 - **Distribution:** Notarized direct download, potential MAS
 
 ## Active Decisions
@@ -39,13 +39,13 @@
 - 2026-01-26: Audio uses `.varispeed` algorithm (fast chipmunk effect vs slow spectral)
 - 2026-01-26: Export as standalone NSWindow (not sheet) - proper sizing, floating
 - 2026-01-26: Export runs independently - user can work on next file while exporting
-- 2026-01-30: Frame decimation export for speed >2x (~10x faster exports)
+- 2026-01-30: Passthrough export for speed >2x (keyframes only, I/O bound, no FFmpeg)
 - 2026-01-26: Quality presets: Fast (HEVC/.mp4), Quality (ProRes/.mov)
 - 2026-01-26: Loop toggle button (on by default)
 - 2026-01-26: J/K/L keyboard shortcuts with three speed modes (Linear/Multiplicative/Presets)
 - 2026-01-26: No auto-play on video load
 - 2025-01-25: **REVISED** Preview via AVPlayer.rate (tested smooth up to 50x on macOS 14+)
-- ~~2025-01-25: Export via AVMutableComposition.scaleTimeRange~~ (replaced by frame decimation for speed >2x)
+- ~~2025-01-25: Export via AVMutableComposition.scaleTimeRange~~ (replaced by passthrough for speed >2x)
 - 2025-01-25: Logarithmic speed slider (2x-100x, fine control at low end)
 - ~~2025-01-25: 200ms debounce for preview regeneration~~ (removed - instant rate changes)
 - ~~2025-01-25: TimelineView at 24fps~~ (replaced by native AVPlayerView)
@@ -59,7 +59,7 @@ None
 - `Models/QuickMotionError.swift` - Typed errors with recovery suggestions
 - `Services/VideoPlayerService.swift` - Player abstraction protocol
 - `Services/AVPlayerService.swift` - AVPlayer implementation
-- `Services/FrameDecimationExporter.swift` - Fast export via frame decimation
+- `Services/PassthroughExporter.swift` - Fast export via keyframe passthrough (no re-encode)
 - `Utilities/VideoDropHandler.swift` - Unified video drop handling
 - `ViewModels/AppState.swift` - App state (delegates to AVPlayerService)
 - `ViewModels/ExportSession.swift` - Export state machine, routes to decimation/legacy
