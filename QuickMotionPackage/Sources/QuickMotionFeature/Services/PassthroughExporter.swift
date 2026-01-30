@@ -103,7 +103,7 @@ public final class PassthroughExporter: @unchecked Sendable {
         }
 
         guard writer.startWriting() else {
-            throw QuickMotionError.exportFailed(reason: "Failed to start writing")
+            throw QuickMotionError.exportFailed(reason: "Failed to start writing: \(writer.error?.localizedDescription ?? "unknown")")
         }
         writer.startSession(atSourceTime: .zero)
 

@@ -13,7 +13,6 @@ public struct ExportSettingsView: View {
     let onExport: () -> Void
 
     @State private var outputFileName: String = ""
-    @State private var outputDirectory: URL?
 
     public init(
         settings: Binding<ExportSettings>,
@@ -70,11 +69,6 @@ public struct ExportSettingsView: View {
         .onAppear {
             // Initialize output filename from source
             outputFileName = suggestedFileName
-            outputDirectory = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first
-            updateOutputURL()
-        }
-        .onChange(of: outputFileName) {
-            updateOutputURL()
         }
         .onChange(of: settings.quality) {
             // Update filename extension when quality changes
@@ -91,28 +85,8 @@ public struct ExportSettingsView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 8) {
-                TextField("Filename", text: $outputFileName)
-                    .textFieldStyle(.roundedBorder)
-
-                Button {
-                    selectOutputDirectory()
-                } label: {
-                    Image(systemName: "folder")
-                }
-                .buttonStyle(.bordered)
-                .help("Choose output folder")
-            }
-
-            if let dir = outputDirectory {
-                HStack(spacing: 4) {
-                    Image(systemName: "folder.fill")
-                        .font(.caption)
-                    Text(friendlyDirectoryName(for: dir))
-                }
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-            }
+            TextField("Filename", text: $outputFileName)
+                .textFieldStyle(.roundedBorder)
         }
     }
 
@@ -210,60 +184,31 @@ public struct ExportSettingsView: View {
         return "\(baseName)_timelapse.\(settings.fileExtension)"
     }
 
-    /// Updates settings.outputURL from current directory and filename
-    private func updateOutputURL() {
-        guard let dir = outputDirectory, !outputFileName.isEmpty else { return }
-        settings.outputURL = dir.appendingPathComponent(outputFileName)
-    }
-
-    /// Returns a user-friendly name for standard directories
-    private func friendlyDirectoryName(for url: URL) -> String {
-        let name = url.lastPathComponent
-
-        // Standard folder names get shown as-is
-        let standardFolders = ["Movies", "Desktop", "Documents", "Downloads", "Pictures", "Music"]
-        if standardFolders.contains(name) {
-            return name
-        }
-
-        return name
-    }
-
-    private func selectOutputDirectory() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.canCreateDirectories = true
-        panel.prompt = "Choose"
-        panel.message = "Select output folder for the timelapse"
-
-        if let currentDir = outputDirectory {
-            panel.directoryURL = currentDir
-        }
-
-        if panel.runModal() == .OK, let url = panel.url {
-            outputDirectory = url
-            updateOutputURL()
-        }
-    }
-
-    /// Shows NSSavePanel to get proper write permission, then starts export
+    /// Shows NSSavePanel to get write permission, then starts export
     private func showSavePanel() {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
-        panel.nameFieldStringValue = outputFileName
-        panel.allowedContentTypes = [
-            settings.quality == .fast ? .mpeg4Movie : .quickTimeMovie
-        ]
 
-        if let dir = outputDirectory {
-            panel.directoryURL = dir
+        // Passthrough export (speed > 2x) requires .mov container
+        // Force .mov extension in that case, regardless of quality setting
+        let requiresMov = speedMultiplier > 2.0
+        if requiresMov {
+            // Ensure filename has .mov extension for passthrough
+            let baseName = (outputFileName as NSString).deletingPathExtension
+            panel.nameFieldStringValue = "\(baseName).mov"
+            panel.allowedContentTypes = [.quickTimeMovie]
+        } else {
+            panel.nameFieldStringValue = outputFileName
+            panel.allowedContentTypes = [
+                settings.quality == .fast ? .mpeg4Movie : .quickTimeMovie
+            ]
         }
+
+        // Default to Movies folder
+        panel.directoryURL = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first
 
         if panel.runModal() == .OK, let url = panel.url {
             settings.outputURL = url
-            outputDirectory = url.deletingLastPathComponent()
             outputFileName = url.lastPathComponent
             onExport()
         }

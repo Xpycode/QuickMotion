@@ -1,27 +1,29 @@
 import AppKit
 import SwiftUI
 
-/// Controller for presenting the export window as a standalone macOS window
+/// Controller for presenting export windows as standalone macOS windows
+/// Supports multiple concurrent exports, each with its own window
 @MainActor
 public final class ExportWindowController {
-    private var window: NSWindow?
-    private var session: ExportSession?
+    private var windows: [UUID: NSWindow] = [:]
+    private var sessions: [UUID: ExportSession] = [:]
 
     public static let shared = ExportWindowController()
 
     private init() {}
 
-    /// Opens the export window with the given session and project info
+    /// Opens a new export window with the given session and project info
+    /// Returns the window ID for tracking
+    @discardableResult
     public func open(
         session: ExportSession,
         sourceFileName: String,
         estimatedInputSize: Int64,
         sourceCodec: String?
-    ) {
-        // Close existing window if any
-        close()
+    ) -> UUID {
+        let windowID = UUID()
 
-        self.session = session
+        self.sessions[windowID] = session
 
         // Create the SwiftUI content
         let contentView = ExportWindow(
@@ -30,7 +32,7 @@ public final class ExportWindowController {
             estimatedInputSize: estimatedInputSize,
             sourceCodec: sourceCodec,
             onDismiss: { [weak self] in
-                self?.close()
+                self?.close(windowID)
             }
         )
 
@@ -53,26 +55,35 @@ public final class ExportWindowController {
         window.contentView = hostingView
         window.isReleasedWhenClosed = false
 
-        // Make it a proper panel that floats above
-        window.level = .floating
-
-        // Restore saved position, or center if first launch
-        if !window.setFrameAutosaveName("ExportWindow") {
-            // Frame autosave name already set (shouldn't happen with singleton)
-            window.center()
-        } else if window.frame.origin == .zero {
-            // First launch - no saved position yet
+        // Position: cascade from existing windows or center if first
+        if let lastWindow = windows.values.first {
+            // Offset from last window
+            let lastFrame = lastWindow.frame
+            let newOrigin = NSPoint(
+                x: lastFrame.origin.x + 30,
+                y: lastFrame.origin.y - 30
+            )
+            window.setFrameOrigin(newOrigin)
+        } else {
+            // First window - center it
             window.center()
         }
 
-        self.window = window
+        self.windows[windowID] = window
         window.makeKeyAndOrderFront(nil)
+
+        return windowID
     }
 
-    /// Closes the export window
-    public func close() {
-        window?.close()
-        window = nil
-        session = nil
+    /// Closes a specific export window by ID
+    public func close(_ windowID: UUID) {
+        windows[windowID]?.close()
+        windows.removeValue(forKey: windowID)
+        sessions.removeValue(forKey: windowID)
+    }
+
+    /// Number of active export windows
+    public var activeExportCount: Int {
+        windows.count
     }
 }
