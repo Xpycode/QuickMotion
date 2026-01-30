@@ -4,7 +4,8 @@ import CoreVideo
 import Foundation
 import VideoToolbox
 
-/// Frame decimation exporter that writes every Nth frame for ~10x faster timelapse exports
+/// Frame decimation exporter that seeks to specific frames for fast timelapse exports
+/// Uses AVAssetImageGenerator for efficient seeking (skips intermediate frames)
 @MainActor
 public final class FrameDecimationExporter {
 
@@ -15,7 +16,7 @@ public final class FrameDecimationExporter {
 
     // MARK: - Private Properties
 
-    private var assetReader: AVAssetReader?
+    private var imageGenerator: AVAssetImageGenerator?
     private var assetWriter: AVAssetWriter?
     private var cancelled = false
 
@@ -23,11 +24,11 @@ public final class FrameDecimationExporter {
 
     // MARK: - Public Methods
 
-    /// Exports a timelapse video using frame decimation
+    /// Exports a timelapse video using frame seeking (NOT sequential reading)
     /// - Parameters:
     ///   - asset: Source video asset
     ///   - outputURL: Destination URL for exported file
-    ///   - speedMultiplier: Speed factor (e.g., 10x means keep every 10th frame)
+    ///   - speedMultiplier: Speed factor (e.g., 32x means sample every 32nd frame time)
     ///   - timeRange: Optional time range for trimming (nil = full duration)
     ///   - settings: Export configuration (quality, resolution, framerate)
     ///   - progress: Optional progress callback
@@ -46,7 +47,7 @@ public final class FrameDecimationExporter {
         // Remove existing output file
         try? FileManager.default.removeItem(at: outputURL)
 
-        // Get source video track
+        // Get source video track for properties
         let sourceTracks = try await asset.loadTracks(withMediaType: .video)
         guard let sourceVideoTrack = sourceTracks.first else {
             throw QuickMotionError.exportFailed(reason: "No video track found in source")
@@ -63,32 +64,42 @@ public final class FrameDecimationExporter {
             effectiveTimeRange = timeRange
         } else {
             let duration = try await asset.load(.duration)
-            effectiveTimeRange = CMTimeRange(start: .zero, duration: duration)
+            effectiveTimeRange = CMTimeRange(start: CMTime.zero, duration: duration)
         }
 
-        // Calculate frame decimation interval
-        let frameInterval = max(1, Int(speedMultiplier.rounded()))
-
-        // Determine output framerate (match source or cap at 30fps)
+        // Calculate frame times to extract
         let sourceFrameRate = nominalFrameRate > 0 ? nominalFrameRate : 30.0
-        let outputFrameRate = min(sourceFrameRate, 30.0)
-        let outputFrameDuration = CMTime(value: 1, timescale: CMTimeScale(outputFrameRate))
+        let outputFrameRate: Float = min(sourceFrameRate, 30.0)
 
-        // Setup reader
-        let reader = try AVAssetReader(asset: asset)
+        // Time between frames we want to sample (in source video time)
+        // At 32x speed with 25fps source: sample every 32/25 = 1.28 seconds
+        let sampleInterval = Double(speedMultiplier) / Double(sourceFrameRate)
 
-        let readerOutputSettings: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
-        ]
+        // Generate list of times to extract
+        var frameTimes: [CMTime] = []
+        let startSeconds = CMTimeGetSeconds(effectiveTimeRange.start)
+        let endSeconds = CMTimeGetSeconds(CMTimeAdd(effectiveTimeRange.start, effectiveTimeRange.duration))
 
-        let readerOutput = AVAssetReaderTrackOutput(track: sourceVideoTrack, outputSettings: readerOutputSettings)
-        readerOutput.alwaysCopiesSampleData = false
-
-        guard reader.canAdd(readerOutput) else {
-            throw QuickMotionError.exportFailed(reason: "Failed to add reader output")
+        var currentTime = startSeconds
+        while currentTime < endSeconds {
+            let time = CMTime(seconds: currentTime, preferredTimescale: 600)
+            frameTimes.append(time)
+            currentTime += sampleInterval
         }
-        reader.add(readerOutput)
-        reader.timeRange = effectiveTimeRange
+
+        let totalFrames = frameTimes.count
+        guard totalFrames > 0 else {
+            throw QuickMotionError.exportFailed(reason: "No frames to export")
+        }
+
+        // Setup image generator for frame extraction
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.requestedTimeToleranceBefore = CMTime(seconds: 0.1, preferredTimescale: 600)
+        generator.requestedTimeToleranceAfter = CMTime(seconds: 0.1, preferredTimescale: 600)
+        // Request full resolution
+        generator.maximumSize = CGSize(width: naturalSize.width, height: naturalSize.height)
+        self.imageGenerator = generator
 
         // Setup writer
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: settings.outputFileType)
@@ -102,12 +113,15 @@ public final class FrameDecimationExporter {
             videoCodec = .proRes422
         }
 
+        // Calculate output dimensions respecting rotation
+        let outputSize = calculateOutputSize(naturalSize: naturalSize, transform: preferredTransform)
+
         let videoSettings: [String: Any] = [
             AVVideoCodecKey: videoCodec,
-            AVVideoWidthKey: Int(naturalSize.width),
-            AVVideoHeightKey: Int(naturalSize.height),
+            AVVideoWidthKey: Int(outputSize.width),
+            AVVideoHeightKey: Int(outputSize.height),
             AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: calculateBitrate(for: naturalSize, quality: settings.quality),
+                AVVideoAverageBitRateKey: calculateBitrate(for: outputSize, quality: settings.quality),
                 AVVideoExpectedSourceFrameRateKey: outputFrameRate,
                 AVVideoProfileLevelKey: videoCodec == .hevc ? kVTProfileLevel_HEVC_Main_AutoLevel as String : nil
             ].compactMapValues { $0 }
@@ -115,132 +129,170 @@ public final class FrameDecimationExporter {
 
         let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         writerInput.expectsMediaDataInRealTime = false
-        writerInput.transform = preferredTransform
+
+        let pixelBufferAttributes: [String: Any] = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
+            kCVPixelBufferWidthKey as String: Int(outputSize.width),
+            kCVPixelBufferHeightKey as String: Int(outputSize.height),
+            kCVPixelBufferCGImageCompatibilityKey as String: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
+        ]
 
         let pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
             assetWriterInput: writerInput,
-            sourcePixelBufferAttributes: [
-                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
-                kCVPixelBufferWidthKey as String: Int(naturalSize.width),
-                kCVPixelBufferHeightKey as String: Int(naturalSize.height)
-            ]
+            sourcePixelBufferAttributes: pixelBufferAttributes
         )
 
         guard writer.canAdd(writerInput) else {
             throw QuickMotionError.exportFailed(reason: "Failed to add writer input")
         }
         writer.add(writerInput)
+        self.assetWriter = writer
 
-        // Start reading and writing
+        // Start writing
         guard writer.startWriting() else {
             throw QuickMotionError.exportFailed(reason: "Failed to start writing: \(writer.error?.localizedDescription ?? "unknown")")
         }
-
         writer.startSession(atSourceTime: CMTime.zero)
 
-        guard reader.startReading() else {
-            throw QuickMotionError.exportFailed(reason: "Failed to start reading: \(reader.error?.localizedDescription ?? "unknown")")
-        }
+        // Output frame duration
+        let outputFrameDuration = CMTime(value: 1, timescale: CMTimeScale(outputFrameRate))
 
-        // Store for cleanup
-        self.assetReader = reader
-        self.assetWriter = writer
+        // Process frames using seeking (not sequential reading!)
+        var framesWritten = 0
 
-        // Estimate total frames for progress
-        let sourceDuration = CMTimeGetSeconds(effectiveTimeRange.duration)
-        let sourceFrameCount = Int(sourceDuration * Double(sourceFrameRate))
-        let expectedOutputFrames = sourceFrameCount / frameInterval
+        for (index, requestedTime) in frameTimes.enumerated() {
+            // Check for cancellation
+            if cancelled {
+                generator.cancelAllCGImageGeneration()
+                writer.cancelWriting()
+                throw QuickMotionError.exportFailed(reason: "Export cancelled")
+            }
 
-        // Process frames
-        var frameIndex = 0
-        var outputFrameIndex = 0
+            do {
+                // Generate image at this specific time (seeks efficiently)
+                // Use copyCGImage which is synchronous but efficient for seeking
+                var actualTime = CMTime.zero
+                let cgImage = try generator.copyCGImage(at: requestedTime, actualTime: &actualTime)
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            writerInput.requestMediaDataWhenReady(on: DispatchQueue(label: "com.quickmotion.frameDecimation")) {
-                var shouldContinue = true
-
-                while writerInput.isReadyForMoreMediaData && shouldContinue {
-                    // Check for cancellation
-                    if self.cancelled {
-                        reader.cancelReading()
-                        writer.cancelWriting()
-                        continuation.resume(throwing: QuickMotionError.exportFailed(reason: "Export cancelled"))
-                        return
+                // Wait for writer to be ready
+                while !writerInput.isReadyForMoreMediaData {
+                    try await Task.sleep(nanoseconds: 10_000_000) // 10ms
+                    if cancelled {
+                        throw QuickMotionError.exportFailed(reason: "Export cancelled")
                     }
-
-                    // Read next sample
-                    guard let sampleBuffer = readerOutput.copyNextSampleBuffer() else {
-                        // No more samples - finish writing
-                        writerInput.markAsFinished()
-
-                        Task { @MainActor in
-                            await writer.finishWriting()
-
-                            switch writer.status {
-                            case .completed:
-                                continuation.resume()
-                            case .failed:
-                                let errorMsg = writer.error?.localizedDescription ?? "Unknown error"
-                                continuation.resume(throwing: QuickMotionError.exportFailed(reason: errorMsg))
-                            case .cancelled:
-                                continuation.resume(throwing: QuickMotionError.exportFailed(reason: "Export cancelled"))
-                            default:
-                                continuation.resume(throwing: QuickMotionError.exportFailed(reason: "Unexpected writer status: \(writer.status.rawValue)"))
-                            }
-                        }
-
-                        shouldContinue = false
-                        break
-                    }
-
-                    // Keep every Nth frame
-                    if frameIndex % frameInterval == 0 {
-                        // Extract pixel buffer
-                        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-                            frameIndex += 1
-                            continue
-                        }
-
-                        // Calculate remapped presentation time
-                        let outputPresentationTime = CMTimeMultiply(outputFrameDuration, multiplier: Int32(outputFrameIndex))
-
-                        // Write frame with remapped timestamp
-                        if !pixelBufferAdaptor.append(imageBuffer, withPresentationTime: outputPresentationTime) {
-                            reader.cancelReading()
-                            writer.cancelWriting()
-                            let errorMsg = writer.error?.localizedDescription ?? "Failed to append pixel buffer"
-                            continuation.resume(throwing: QuickMotionError.exportFailed(reason: errorMsg))
-                            shouldContinue = false
-                            break
-                        }
-
-                        outputFrameIndex += 1
-
-                        // Report progress
-                        if let progress = progress, expectedOutputFrames > 0 {
-                            let fractionComplete = Double(outputFrameIndex) / Double(expectedOutputFrames)
-                            Task { @MainActor in
-                                progress(min(fractionComplete, 1.0))
-                            }
-                        }
-                    }
-
-                    frameIndex += 1
                 }
+
+                // Create pixel buffer from CGImage
+                guard let pixelBuffer = createPixelBuffer(from: cgImage, size: outputSize, pool: pixelBufferAdaptor.pixelBufferPool) else {
+                    continue // Skip this frame if we can't create a buffer
+                }
+
+                // Calculate presentation time for output
+                let presentationTime = CMTimeMultiply(outputFrameDuration, multiplier: Int32(framesWritten))
+
+                // Write frame
+                if !pixelBufferAdaptor.append(pixelBuffer, withPresentationTime: presentationTime) {
+                    let errorMsg = writer.error?.localizedDescription ?? "Failed to append pixel buffer"
+                    throw QuickMotionError.exportFailed(reason: errorMsg)
+                }
+
+                framesWritten += 1
+
+                // Report progress
+                if let progress = progress {
+                    let fractionComplete = Double(index + 1) / Double(totalFrames)
+                    progress(min(fractionComplete, 1.0))
+                }
+
+            } catch let error as QuickMotionError {
+                throw error
+            } catch {
+                // Skip frames that fail to generate (corrupted sections, etc.)
+                continue
             }
         }
 
+        // Finish writing
+        writerInput.markAsFinished()
+        await writer.finishWriting()
+
+        if writer.status == .failed {
+            throw QuickMotionError.exportFailed(reason: writer.error?.localizedDescription ?? "Unknown error")
+        }
+
         // Cleanup
-        self.assetReader = nil
+        self.imageGenerator = nil
         self.assetWriter = nil
     }
 
     /// Cancels an in-progress export
     public func cancel() {
         cancelled = true
+        imageGenerator?.cancelAllCGImageGeneration()
     }
 
     // MARK: - Private Methods
+
+    /// Creates a pixel buffer from a CGImage
+    private func createPixelBuffer(from cgImage: CGImage, size: CGSize, pool: CVPixelBufferPool?) -> CVPixelBuffer? {
+        var pixelBuffer: CVPixelBuffer?
+
+        if let pool = pool {
+            let status = CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pixelBuffer)
+            guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
+                return nil
+            }
+            pixelBuffer = buffer
+        } else {
+            let attrs: [String: Any] = [
+                kCVPixelBufferCGImageCompatibilityKey as String: true,
+                kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
+            ]
+            let status = CVPixelBufferCreate(
+                kCFAllocatorDefault,
+                Int(size.width),
+                Int(size.height),
+                kCVPixelFormatType_32ARGB,
+                attrs as CFDictionary,
+                &pixelBuffer
+            )
+            guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
+                return nil
+            }
+            pixelBuffer = buffer
+        }
+
+        guard let buffer = pixelBuffer else { return nil }
+
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+
+        guard let context = CGContext(
+            data: CVPixelBufferGetBaseAddress(buffer),
+            width: Int(size.width),
+            height: Int(size.height),
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else {
+            return nil
+        }
+
+        context.draw(cgImage, in: CGRect(origin: .zero, size: size))
+        return buffer
+    }
+
+    /// Calculate output size respecting video rotation
+    private func calculateOutputSize(naturalSize: CGSize, transform: CGAffineTransform) -> CGSize {
+        // Check if video is rotated 90 or 270 degrees
+        let isRotated = abs(transform.b) == 1.0 && abs(transform.c) == 1.0
+        if isRotated {
+            return CGSize(width: naturalSize.height, height: naturalSize.width)
+        }
+        return naturalSize
+    }
 
     /// Calculates appropriate bitrate based on resolution and quality
     private func calculateBitrate(for size: CGSize, quality: ExportQuality) -> Int {
@@ -252,7 +304,6 @@ public final class FrameDecimationExporter {
             return Int(pixels * 0.1 * 30.0)
         case .quality:
             // ProRes is VBR and doesn't use bitrate hint in the same way
-            // Return a nominal value
             return Int(pixels * 0.5 * 30.0)
         }
     }
