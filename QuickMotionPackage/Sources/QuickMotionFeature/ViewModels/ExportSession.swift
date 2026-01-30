@@ -226,10 +226,10 @@ public final class ExportSession: Identifiable {
 
         // Validate time range
         guard effectiveEnd > effectiveStart else {
-            throw ExportError.invalidTimeRange("Out point must be after in point")
+            throw QuickMotionError.invalidTimeRange("Out point must be after in point")
         }
         guard trimmedDuration > 0.1 else {
-            throw ExportError.invalidTimeRange("Selected duration too short (minimum 0.1 seconds)")
+            throw QuickMotionError.invalidTimeRange("Selected duration too short (minimum 0.1 seconds)")
         }
 
         let startTime = CMTime(seconds: effectiveStart, preferredTimescale: fullDuration.timescale)
@@ -397,13 +397,13 @@ public final class ExportSession: Identifiable {
                 let requiredSpace = Int64(Double(estimatedSize) * 1.1)
 
                 if availableCapacity < requiredSpace {
-                    throw ExportError.insufficientDiskSpace(
+                    throw QuickMotionError.insufficientDiskSpace(
                         required: requiredSpace,
                         available: availableCapacity
                     )
                 }
             }
-        } catch let error as ExportError {
+        } catch let error as QuickMotionError {
             throw error
         } catch {
             // If we can't check disk space, proceed anyway and let the export fail naturally
@@ -477,17 +477,14 @@ public final class ExportSession: Identifiable {
 
 // MARK: - Export Errors
 
-/// Errors that can occur during export
-public enum ExportError: LocalizedError {
+/// Internal errors specific to export session setup
+/// For user-facing errors (disk space, time range), use QuickMotionError
+private enum ExportError: LocalizedError {
     case failedToCreateVideoTrack
     case noVideoTrackInSource
     case failedToCreateExportSession
-    case insufficientDiskSpace(required: Int64, available: Int64)
-    case permissionDenied(path: String)
-    case diskWriteError(underlying: String)
-    case invalidTimeRange(String)
 
-    public var errorDescription: String? {
+    var errorDescription: String? {
         switch self {
         case .failedToCreateVideoTrack:
             return "Failed to create video track in composition"
@@ -495,18 +492,6 @@ public enum ExportError: LocalizedError {
             return "Source video does not contain a video track"
         case .failedToCreateExportSession:
             return "Failed to create export session with the selected preset"
-        case .insufficientDiskSpace(let required, let available):
-            let formatter = ByteCountFormatter()
-            formatter.countStyle = .file
-            let requiredStr = formatter.string(fromByteCount: required)
-            let availableStr = formatter.string(fromByteCount: available)
-            return "Not enough disk space. Need \(requiredStr), but only \(availableStr) available."
-        case .permissionDenied(let path):
-            return "Permission denied writing to \"\(path)\". Try choosing a different location."
-        case .diskWriteError(let underlying):
-            return "Could not write file: \(underlying)"
-        case .invalidTimeRange(let message):
-            return message
         }
     }
 }

@@ -12,7 +12,7 @@ public enum SpeedMode: String, CaseIterable {
 /// Main application state
 @MainActor
 @Observable
-public final class AppState {
+public final class AppState: VideoPlayerServiceDelegate {
 
     // MARK: - Project State
 
@@ -30,15 +30,11 @@ public final class AppState {
     /// Slider value (0...1) - maps logarithmically to speed
     public var sliderValue: Double = 0.5 {
         didSet {
-            // Update project speed when slider changes
             project?.speedMultiplier = speedFromSlider(sliderValue)
-
-            // Calculate and store desired rate
             desiredRate = Float(speedMultiplier)
 
-            // If playing, apply rate immediately
             if isPlaying {
-                player?.rate = desiredRate
+                playerService.setRate(desiredRate)
             }
         }
     }
@@ -101,9 +97,6 @@ public final class AppState {
 
     public var previewState: PreviewState = .idle
 
-    /// AVPlayer for video playback
-    public var player: AVPlayer?
-
     /// Current playback time in seconds
     public var currentTime: Double = 0
 
@@ -116,7 +109,6 @@ public final class AppState {
     /// Whether playback should loop
     public var isLooping: Bool = true {
         didSet {
-            // If enabling loop while at the end (or OUT point), seek to IN
             let endPoint = effectiveOutPoint
             if isLooping && currentTime >= endPoint - 0.1 && duration > 0 {
                 seek(to: effectiveInPoint)
@@ -129,18 +121,16 @@ public final class AppState {
 
     // MARK: - Private Dependencies
 
-    /// Time observer for periodic time updates
-    private var timeObserver: Any?
+    private let playerService: AVPlayerService = AVPlayerService()
 
-    /// Observer for end-of-playback (looping)
-    private var endObserver: NSObjectProtocol?
-
-    /// Boundary observer for OUT point (trim looping)
-    private var outPointObserver: Any?
+    /// Expose player for AVPlayerView binding
+    public var player: AVPlayer? { playerService.player }
 
     // MARK: - Initialization
 
-    public init() {}
+    public init() {
+        playerService.delegate = self
+    }
 
     // MARK: - Actions
 
@@ -155,31 +145,20 @@ public final class AppState {
             try await newProject.loadMetadata()
 
             let asset = AVURLAsset(url: url)
-            let playerItem = AVPlayerItem(asset: asset)
-
-            // Load duration
             let durationValue = try await asset.load(.duration)
             self.duration = durationValue.seconds
 
-            // Clean up existing player before creating new one
-            cleanupCurrentPlayer()
-
-            // Create player
-            let newPlayer = AVPlayer(playerItem: playerItem)
-            self.player = newPlayer
-            setupTimeObserver()
+            try await playerService.load(url: url)
 
             self.project = newProject
-            // Set slider to give ~10x speed initially
             self.sliderValue = sliderFromSpeed(10.0)
             self.desiredRate = Float(speedMultiplier)
             self.previewState = .ready
             self.isPlaying = false
-            newPlayer.pause()  // Explicitly pause - AVPlayerView auto-plays otherwise
-            setupLooping(for: newPlayer)
+            playerService.pause()
 
         } catch {
-            self.errorMessage = error.localizedDescription
+            self.errorMessage = QuickMotionError.videoLoadFailed(url: url, underlying: error).localizedDescription
             self.showError = true
             self.previewState = .idle
         }
@@ -187,20 +166,9 @@ public final class AppState {
         isLoading = false
     }
 
-    /// Cleans up observers and references for the current player before loading a new video
-    private func cleanupCurrentPlayer() {
-        removeTimeObserver()
-        removeEndObserver()
-        removeOutPointObserver()
-        player = nil
-    }
-
     /// Clears the current project
     public func clearProject() {
-        removeTimeObserver()
-        removeEndObserver()
-        removeOutPointObserver()
-        player = nil
+        playerService.cleanup()
         project = nil
         previewState = .idle
         sliderValue = 0.5
@@ -210,11 +178,27 @@ public final class AppState {
         outPoint = nil
     }
 
-    /// Removes the OUT point boundary observer
-    private func removeOutPointObserver() {
-        if let observer = outPointObserver {
-            player?.removeTimeObserver(observer)
-            outPointObserver = nil
+    // MARK: - VideoPlayerServiceDelegate
+
+    public func playerService(_ service: VideoPlayerService, didUpdateTime time: Double) {
+        self.currentTime = time
+    }
+
+    public func playerServiceDidReachEnd(_ service: VideoPlayerService) {
+        if isLooping && isPlaying {
+            seek(to: effectiveInPoint)
+            playerService.setRate(desiredRate)
+        } else {
+            isPlaying = false
+        }
+    }
+
+    public func playerServiceDidReachOutPoint(_ service: VideoPlayerService) {
+        if isLooping && isPlaying {
+            seek(to: effectiveInPoint)
+            playerService.setRate(desiredRate)
+        } else {
+            pause()
         }
     }
 
@@ -223,13 +207,13 @@ public final class AppState {
     /// Starts playback at the desired rate
     public func play() {
         isPlaying = true
-        player?.rate = desiredRate
+        playerService.setRate(desiredRate)
     }
 
     /// Pauses playback
     public func pause() {
         isPlaying = false
-        player?.rate = 0
+        playerService.setRate(0)
     }
 
     /// Seeks to a specific time in seconds (clamped to trim bounds if set)
@@ -237,15 +221,13 @@ public final class AppState {
         let clampedTime = hasTrimPoints
             ? max(effectiveInPoint, min(effectiveOutPoint, time))
             : time
-        let cmTime = CMTime(seconds: clampedTime, preferredTimescale: 600)
-        player?.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+        playerService.seek(to: clampedTime)
     }
 
     // MARK: - Trim Point Actions
 
     /// Sets IN point at current playback time
     public func setInPoint() {
-        // Ensure IN is before OUT (if OUT is set)
         if let out = outPoint, currentTime >= out {
             inPoint = max(0, out - 0.1)
         } else {
@@ -255,7 +237,6 @@ public final class AppState {
 
     /// Sets OUT point at current playback time
     public func setOutPoint() {
-        // Ensure OUT is after IN (if IN is set)
         if let inPt = inPoint, currentTime <= inPt {
             outPoint = min(duration, inPt + 0.1)
         } else {
@@ -330,97 +311,12 @@ public final class AppState {
         }
     }
 
-    // MARK: - Time Observer
-
-    /// Sets up periodic time observer for currentTime updates
-    private func setupTimeObserver() {
-        let interval = CMTime(seconds: 0.1, preferredTimescale: 600)
-        timeObserver = player?.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            Task { @MainActor in
-                self?.currentTime = time.seconds
-            }
-        }
-    }
-
-    /// Removes the time observer
-    private func removeTimeObserver() {
-        if let observer = timeObserver {
-            player?.removeTimeObserver(observer)
-            timeObserver = nil
-        }
-    }
-
-    /// Sets up looping - when video ends, seek back to IN point if looping enabled
-    private func setupLooping(for player: AVPlayer) {
-        endObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: player.currentItem,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                guard let self = self else { return }
-                if self.isLooping && self.isPlaying {
-                    self.seek(to: self.effectiveInPoint)
-                    self.player?.rate = self.desiredRate
-                } else {
-                    self.isPlaying = false
-                }
-            }
-        }
-    }
-
     /// Updates playback boundaries when trim points change
     private func updateTrimBoundaries() {
-        guard let player = player, let item = player.currentItem else { return }
+        playerService.setTrimBoundaries(inPoint: inPoint, outPoint: outPoint)
 
-        // Remove existing OUT point observer
-        if let observer = outPointObserver {
-            player.removeTimeObserver(observer)
-            outPointObserver = nil
-        }
-
-        // Set forward playback end time (player auto-stops here)
-        if let out = outPoint {
-            item.forwardPlaybackEndTime = CMTime(seconds: out, preferredTimescale: 600)
-
-            // Add boundary observer for looping at OUT point
-            let outTime = CMTime(seconds: out, preferredTimescale: 600)
-            outPointObserver = player.addBoundaryTimeObserver(
-                forTimes: [NSValue(time: outTime)],
-                queue: .main
-            ) { [weak self] in
-                Task { @MainActor in
-                    guard let self = self else { return }
-                    if self.isLooping && self.isPlaying {
-                        self.seek(to: self.effectiveInPoint)
-                        self.player?.rate = self.desiredRate
-                    } else {
-                        self.pause()
-                    }
-                }
-            }
-        } else {
-            item.forwardPlaybackEndTime = .invalid
-        }
-
-        // Set reverse playback end time
-        if let inPt = inPoint {
-            item.reversePlaybackEndTime = CMTime(seconds: inPt, preferredTimescale: 600)
-        } else {
-            item.reversePlaybackEndTime = .invalid
-        }
-
-        // If current time is outside new bounds, seek to IN point
         if currentTime < effectiveInPoint || currentTime > effectiveOutPoint {
             seek(to: effectiveInPoint)
-        }
-    }
-
-    /// Removes the end observer
-    private func removeEndObserver() {
-        if let observer = endObserver {
-            NotificationCenter.default.removeObserver(observer)
-            endObserver = nil
         }
     }
 
@@ -436,10 +332,6 @@ public final class AppState {
 
     /// Converts speed to slider value (inverse of above)
     public func sliderFromSpeed(_ speed: Double) -> Double {
-        // speed = 2 * 50^value
-        // speed/2 = 50^value
-        // log(speed/2) = value * log(50)
-        // value = log(speed/2) / log(50)
         let value = log(speed / 2.0) / log(50.0)
         return min(1, max(0, value))
     }
