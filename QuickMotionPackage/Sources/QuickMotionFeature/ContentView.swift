@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Main application view
 public struct ContentView: View {
@@ -35,7 +36,7 @@ public struct ContentView: View {
                 Text(error)
             }
         }
-        .onDrop(of: [.movie, .video], isTargeted: nil) { providers in
+        .onDrop(of: VideoDropHandler.supportedTypes, isTargeted: nil) { providers in
             // Allow dropping anywhere when video is loaded
             handleDrop(providers)
         }
@@ -218,16 +219,11 @@ public struct ContentView: View {
     // MARK: - Drop Handling
 
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
-        guard let provider = providers.first else { return false }
-
-        provider.loadItem(forTypeIdentifier: "public.movie", options: nil) { item, _ in
-            if let url = item as? URL {
-                Task { @MainActor in
-                    await appState.loadVideo(from: url)
-                }
+        Task {
+            if let url = await VideoDropHandler.loadURL(from: providers) {
+                await appState.loadVideo(from: url)
             }
         }
-
         return true
     }
 }

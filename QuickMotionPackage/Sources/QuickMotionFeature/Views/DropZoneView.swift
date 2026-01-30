@@ -43,27 +43,19 @@ public struct DropZoneView: View {
                 )
         }
         .padding()
-        .onDrop(of: [.movie, .video, .mpeg4Movie, .quickTimeMovie], isTargeted: $isTargeted) { providers in
+        .onDrop(of: VideoDropHandler.supportedTypes, isTargeted: $isTargeted) { providers in
             handleDrop(providers)
         }
     }
 
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
-        guard let provider = providers.first else { return false }
-
-        // Try to load as file URL
-        provider.loadItem(forTypeIdentifier: UTType.movie.identifier, options: nil) { item, error in
-            if let url = item as? URL {
-                Task { @MainActor in
-                    onDrop(url)
-                }
-            } else if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
-                Task { @MainActor in
+        Task {
+            if let url = await VideoDropHandler.loadURL(from: providers) {
+                await MainActor.run {
                     onDrop(url)
                 }
             }
         }
-
         return true
     }
 
@@ -72,7 +64,7 @@ public struct DropZoneView: View {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.allowedContentTypes = [.movie, .video, .mpeg4Movie, .quickTimeMovie]
+        panel.allowedContentTypes = VideoDropHandler.allowedContentTypes
         panel.message = "Select a video file"
 
         if panel.runModal() == .OK, let url = panel.url {
