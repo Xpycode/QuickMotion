@@ -10,6 +10,7 @@ QuickMotion - Minimal macOS timelapse video creator
 
 | Date | Focus | Outcome | Log |
 |------|-------|---------|-----|
+| 2026-01-31 | Ship Blockers | About window + Sparkle verified, pushed to GitHub | [log](2026-01-31.md) |
 | 2026-01-30 | Bug Fixes + Architecture + Export UX | Wave 1-3, Sparkle fix, passthrough export, multi-window exports | [log](2026-01-30.md) |
 | 2026-01-29 | Sparkle Auto-Updates | Full implementation - updater, menu item, signing script | [log](2026-01-29.md) |
 | 2026-01-27 | Phase 4 + Trim Feature | IN/OUT trim points, yellow overlay, export integration | [log](2026-01-27.md) |
