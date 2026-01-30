@@ -79,6 +79,9 @@ public final class ExportSession: Identifiable {
 
     /// The underlying AVAssetExportSession (for future real implementation)
     private var exportSession: AVAssetExportSession?
+    
+    /// Frame decimation exporter for fast timelapse exports
+    private var frameDecimationExporter: FrameDecimationExporter?
 
     /// Timer for progress updates
     private var progressTimer: Timer?
@@ -138,6 +141,15 @@ public final class ExportSession: Identifiable {
                 speedMultiplier: speedMultiplier
             )
             try checkDiskSpace(estimatedSize: estimatedSize)
+
+            // Choose export method based on settings
+            if settings.shouldUseFrameDecimation(speedMultiplier: speedMultiplier) {
+                // Use frame decimation for speed > 2x (faster export)
+                try await exportWithFrameDecimation()
+                return
+            }
+
+            // Fall through to legacy AVAssetExportSession path for speed <= 2x
 
             // Create composition and configure export
             let (_, export) = try await prepareExport()
@@ -294,10 +306,66 @@ public final class ExportSession: Identifiable {
         return (composition, export)
     }
 
+    /// Exports using frame decimation (faster for high speeds)
+    private func exportWithFrameDecimation() async throws {
+        let exporter = FrameDecimationExporter()
+        self.frameDecimationExporter = exporter
+        
+        // Calculate time range if trim points are set
+        let timeRange: CMTimeRange?
+        if let inPoint = inPoint, let outPoint = outPoint {
+            let duration = try await sourceAsset.load(.duration)
+            let startTime = CMTime(seconds: inPoint, preferredTimescale: duration.timescale)
+            let endTime = CMTime(seconds: outPoint, preferredTimescale: duration.timescale)
+            timeRange = CMTimeRange(start: startTime, end: endTime)
+        } else if let inPoint = inPoint {
+            let duration = try await sourceAsset.load(.duration)
+            let startTime = CMTime(seconds: inPoint, preferredTimescale: duration.timescale)
+            timeRange = CMTimeRange(start: startTime, duration: CMTimeSubtract(duration, startTime))
+        } else if let outPoint = outPoint {
+            let duration = try await sourceAsset.load(.duration)
+            let endTime = CMTime(seconds: outPoint, preferredTimescale: duration.timescale)
+            timeRange = CMTimeRange(start: .zero, duration: endTime)
+        } else {
+            timeRange = nil
+        }
+        
+        state = .exporting(progress: 0)
+        startProgressTimer()
+        
+        do {
+            try await exporter.export(
+                asset: sourceAsset,
+                to: outputURL,
+                speedMultiplier: speedMultiplier,
+                timeRange: timeRange,
+                settings: settings
+            ) { [weak self] progress in
+                self?.fractionComplete = progress
+                self?.state = .exporting(progress: progress)
+            }
+            
+            // Success
+            stopProgressTimer()
+            fractionComplete = 1.0
+            stopSecurityScopedAccess()
+            state = .completed(url: outputURL)
+            
+        } catch {
+            stopProgressTimer()
+            cleanupOnFailure()
+            stopSecurityScopedAccess()
+            state = .failed(error: error.localizedDescription)
+        }
+        
+        self.frameDecimationExporter = nil
+    }
+
     /// Cancels the export operation
     public func cancel() {
         stopProgressTimer()
         exportSession?.cancelExport()
+        frameDecimationExporter?.cancel()
         state = .cancelled
     }
 
