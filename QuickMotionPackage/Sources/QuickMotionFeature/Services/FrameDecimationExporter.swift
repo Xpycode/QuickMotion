@@ -6,8 +6,8 @@ import VideoToolbox
 
 /// Frame decimation exporter that seeks to specific frames for fast timelapse exports
 /// Uses AVAssetImageGenerator for efficient seeking (skips intermediate frames)
-@MainActor
-public final class FrameDecimationExporter {
+/// Note: Heavy I/O runs on background threads to avoid blocking the UI
+public final class FrameDecimationExporter: @unchecked Sendable {
 
     // MARK: - Public Types
 
@@ -18,7 +18,21 @@ public final class FrameDecimationExporter {
 
     private var imageGenerator: AVAssetImageGenerator?
     private var assetWriter: AVAssetWriter?
-    private var cancelled = false
+    private let cancelledLock = NSLock()
+    private var _cancelled = false
+
+    private var cancelled: Bool {
+        get {
+            cancelledLock.lock()
+            defer { cancelledLock.unlock() }
+            return _cancelled
+        }
+        set {
+            cancelledLock.lock()
+            _cancelled = newValue
+            cancelledLock.unlock()
+        }
+    }
 
     public init() {}
 
@@ -33,6 +47,7 @@ public final class FrameDecimationExporter {
     ///   - settings: Export configuration (quality, resolution, framerate)
     ///   - progress: Optional progress callback
     /// - Throws: QuickMotionError on failure
+    @MainActor
     public func export(
         asset: AVAsset,
         to outputURL: URL,
@@ -158,58 +173,84 @@ public final class FrameDecimationExporter {
         // Output frame duration
         let outputFrameDuration = CMTime(value: 1, timescale: CMTimeScale(outputFrameRate))
 
-        // Process frames using seeking (not sequential reading!)
-        var framesWritten = 0
+        // Process frames on a background thread to avoid blocking the UI
+        // Capture values needed for the background task
+        let capturedGenerator = generator
+        let capturedWriter = writer
+        let capturedWriterInput = writerInput
+        let capturedAdaptor = pixelBufferAdaptor
+        let capturedOutputSize = outputSize
+        let capturedOutputFrameDuration = outputFrameDuration
+        let capturedFrameTimes = frameTimes
+        let capturedTotalFrames = totalFrames
 
-        for (index, requestedTime) in frameTimes.enumerated() {
-            // Check for cancellation
-            if cancelled {
-                generator.cancelAllCGImageGeneration()
-                writer.cancelWriting()
-                throw QuickMotionError.exportFailed(reason: "Export cancelled")
-            }
+        // Run heavy frame extraction on a background thread
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                var framesWritten = 0
 
-            do {
-                // Generate image at this specific time (seeks efficiently)
-                // Use copyCGImage which is synchronous but efficient for seeking
-                var actualTime = CMTime.zero
-                let cgImage = try generator.copyCGImage(at: requestedTime, actualTime: &actualTime)
+                for (index, requestedTime) in capturedFrameTimes.enumerated() {
+                    // Check for cancellation
+                    guard let self = self, !self.cancelled else {
+                        capturedGenerator.cancelAllCGImageGeneration()
+                        capturedWriter.cancelWriting()
+                        continuation.resume(throwing: QuickMotionError.exportFailed(reason: "Export cancelled"))
+                        return
+                    }
 
-                // Wait for writer to be ready
-                while !writerInput.isReadyForMoreMediaData {
-                    try await Task.sleep(nanoseconds: 10_000_000) // 10ms
-                    if cancelled {
-                        throw QuickMotionError.exportFailed(reason: "Export cancelled")
+                    do {
+                        // Generate image at this specific time (seeks efficiently)
+                        // copyCGImage is synchronous but now runs on background thread
+                        var actualTime = CMTime.zero
+                        let cgImage = try capturedGenerator.copyCGImage(at: requestedTime, actualTime: &actualTime)
+
+                        // Wait for writer to be ready (busy wait on background is fine)
+                        while !capturedWriterInput.isReadyForMoreMediaData {
+                            if self.cancelled {
+                                capturedGenerator.cancelAllCGImageGeneration()
+                                capturedWriter.cancelWriting()
+                                continuation.resume(throwing: QuickMotionError.exportFailed(reason: "Export cancelled"))
+                                return
+                            }
+                            Thread.sleep(forTimeInterval: 0.01) // 10ms
+                        }
+
+                        // Create pixel buffer from CGImage
+                        guard let pixelBuffer = self.createPixelBuffer(from: cgImage, size: capturedOutputSize, pool: capturedAdaptor.pixelBufferPool) else {
+                            continue // Skip this frame if we can't create a buffer
+                        }
+
+                        // Calculate presentation time for output
+                        let presentationTime = CMTimeMultiply(capturedOutputFrameDuration, multiplier: Int32(framesWritten))
+
+                        // Write frame
+                        if !capturedAdaptor.append(pixelBuffer, withPresentationTime: presentationTime) {
+                            let errorMsg = capturedWriter.error?.localizedDescription ?? "Failed to append pixel buffer"
+                            continuation.resume(throwing: QuickMotionError.exportFailed(reason: errorMsg))
+                            return
+                        }
+
+                        framesWritten += 1
+
+                        // Report progress on main thread
+                        if let progress = progress {
+                            let fractionComplete = Double(index + 1) / Double(capturedTotalFrames)
+                            Task { @MainActor in
+                                progress(min(fractionComplete, 1.0))
+                            }
+                        }
+
+                    } catch let error as QuickMotionError {
+                        continuation.resume(throwing: error)
+                        return
+                    } catch {
+                        // Skip frames that fail to generate (corrupted sections, etc.)
+                        continue
                     }
                 }
 
-                // Create pixel buffer from CGImage
-                guard let pixelBuffer = createPixelBuffer(from: cgImage, size: outputSize, pool: pixelBufferAdaptor.pixelBufferPool) else {
-                    continue // Skip this frame if we can't create a buffer
-                }
-
-                // Calculate presentation time for output
-                let presentationTime = CMTimeMultiply(outputFrameDuration, multiplier: Int32(framesWritten))
-
-                // Write frame
-                if !pixelBufferAdaptor.append(pixelBuffer, withPresentationTime: presentationTime) {
-                    let errorMsg = writer.error?.localizedDescription ?? "Failed to append pixel buffer"
-                    throw QuickMotionError.exportFailed(reason: errorMsg)
-                }
-
-                framesWritten += 1
-
-                // Report progress
-                if let progress = progress {
-                    let fractionComplete = Double(index + 1) / Double(totalFrames)
-                    progress(min(fractionComplete, 1.0))
-                }
-
-            } catch let error as QuickMotionError {
-                throw error
-            } catch {
-                // Skip frames that fail to generate (corrupted sections, etc.)
-                continue
+                // Successfully processed all frames
+                continuation.resume()
             }
         }
 

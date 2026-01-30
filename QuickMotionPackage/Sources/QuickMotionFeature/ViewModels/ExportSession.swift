@@ -83,6 +83,15 @@ public final class ExportSession: Identifiable {
     /// Frame decimation exporter for fast timelapse exports
     private var frameDecimationExporter: FrameDecimationExporter?
 
+    /// Sample buffer exporter (AVAssetReader/Writer with frame skipping)
+    private var sampleBufferExporter: SampleBufferExporter?
+
+    /// Passthrough exporter (keyframes only, no decode/encode - fastest)
+    private var passthroughExporter: PassthroughExporter?
+
+    /// FFmpeg exporter (fastest when available)
+    private var ffmpegExporter: FFmpegExporter?
+
     /// Timer for progress updates
     private var progressTimer: Timer?
 
@@ -142,12 +151,15 @@ public final class ExportSession: Identifiable {
             )
             try checkDiskSpace(estimatedSize: estimatedSize)
 
-            // Choose export method based on settings
-            if settings.shouldUseFrameDecimation(speedMultiplier: speedMultiplier) {
-                // Use frame decimation for speed > 2x (faster export)
-                try await exportWithFrameDecimation()
+            // Choose export method based on speed
+            // For speed > 2x, use passthrough (keyframes only, no decode/encode)
+            // This is I/O bound but much faster than re-encoding
+            if speedMultiplier > 2.0 {
+                print("[Export] Using Passthrough exporter (speed > 2x)")
+                try await exportWithPassthrough()
                 return
             }
+            print("[Export] Using legacy AVAssetExportSession (speed <= 2x)")
 
             // Fall through to legacy AVAssetExportSession path for speed <= 2x
 
@@ -361,11 +373,174 @@ public final class ExportSession: Identifiable {
         self.frameDecimationExporter = nil
     }
 
+    /// Exports using SampleBufferExporter (AVAssetReader/Writer with frame skipping)
+    /// This is the fastest approach: hardware decode all frames, only encode every Nth
+    private func exportWithSampleBufferExporter() async throws {
+        let exporter = SampleBufferExporter()
+        self.sampleBufferExporter = exporter
+
+        // Calculate time range if trim points are set
+        let timeRange: CMTimeRange?
+        if let inPoint = inPoint, let outPoint = outPoint {
+            let duration = try await sourceAsset.load(.duration)
+            let startTime = CMTime(seconds: inPoint, preferredTimescale: duration.timescale)
+            let endTime = CMTime(seconds: outPoint, preferredTimescale: duration.timescale)
+            timeRange = CMTimeRange(start: startTime, end: endTime)
+        } else if let inPoint = inPoint {
+            let duration = try await sourceAsset.load(.duration)
+            let startTime = CMTime(seconds: inPoint, preferredTimescale: duration.timescale)
+            timeRange = CMTimeRange(start: startTime, duration: CMTimeSubtract(duration, startTime))
+        } else if let outPoint = outPoint {
+            let duration = try await sourceAsset.load(.duration)
+            let endTime = CMTime(seconds: outPoint, preferredTimescale: duration.timescale)
+            timeRange = CMTimeRange(start: .zero, duration: endTime)
+        } else {
+            timeRange = nil
+        }
+
+        state = .exporting(progress: 0)
+        startProgressTimer()
+
+        do {
+            try await exporter.export(
+                asset: sourceAsset,
+                to: outputURL,
+                speedMultiplier: speedMultiplier,
+                timeRange: timeRange,
+                settings: settings
+            ) { [weak self] progress in
+                self?.fractionComplete = progress
+                self?.state = .exporting(progress: progress)
+            }
+
+            // Success
+            stopProgressTimer()
+            fractionComplete = 1.0
+            stopSecurityScopedAccess()
+            state = .completed(url: outputURL)
+
+        } catch {
+            stopProgressTimer()
+            cleanupOnFailure()
+            stopSecurityScopedAccess()
+            state = .failed(error: error.localizedDescription)
+        }
+
+        self.sampleBufferExporter = nil
+    }
+
+    /// Exports using PassthroughExporter (keyframes only, no decode/encode - FASTEST)
+    /// This copies compressed keyframes directly without any transcoding
+    private func exportWithPassthrough() async throws {
+        let exporter = PassthroughExporter()
+        self.passthroughExporter = exporter
+
+        // Calculate time range if trim points are set
+        let timeRange: CMTimeRange?
+        if let inPoint = inPoint, let outPoint = outPoint {
+            let duration = try await sourceAsset.load(.duration)
+            let startTime = CMTime(seconds: inPoint, preferredTimescale: duration.timescale)
+            let endTime = CMTime(seconds: outPoint, preferredTimescale: duration.timescale)
+            timeRange = CMTimeRange(start: startTime, end: endTime)
+        } else if let inPoint = inPoint {
+            let duration = try await sourceAsset.load(.duration)
+            let startTime = CMTime(seconds: inPoint, preferredTimescale: duration.timescale)
+            timeRange = CMTimeRange(start: startTime, duration: CMTimeSubtract(duration, startTime))
+        } else if let outPoint = outPoint {
+            let duration = try await sourceAsset.load(.duration)
+            let endTime = CMTime(seconds: outPoint, preferredTimescale: duration.timescale)
+            timeRange = CMTimeRange(start: .zero, duration: endTime)
+        } else {
+            timeRange = nil
+        }
+
+        state = .exporting(progress: 0)
+        startProgressTimer()
+
+        // Note: Passthrough outputs .mov regardless of settings (required for passthrough)
+        // Update outputURL extension if needed
+        var actualOutputURL = outputURL
+        if outputURL.pathExtension.lowercased() != "mov" {
+            actualOutputURL = outputURL.deletingPathExtension().appendingPathExtension("mov")
+            self.outputURL = actualOutputURL
+        }
+
+        do {
+            try await exporter.export(
+                asset: sourceAsset,
+                to: actualOutputURL,
+                speedMultiplier: speedMultiplier,
+                timeRange: timeRange
+            ) { [weak self] progress in
+                self?.fractionComplete = progress
+                self?.state = .exporting(progress: progress)
+            }
+
+            stopProgressTimer()
+            fractionComplete = 1.0
+            stopSecurityScopedAccess()
+            state = .completed(url: actualOutputURL)
+
+        } catch {
+            stopProgressTimer()
+            cleanupOnFailure()
+            stopSecurityScopedAccess()
+            state = .failed(error: error.localizedDescription)
+        }
+
+        self.passthroughExporter = nil
+    }
+
+    /// Exports using FFmpeg (fastest - uses hardware encoding and smart frame selection)
+    private func exportWithFFmpeg() async throws {
+        let exporter = FFmpegExporter()
+        self.ffmpegExporter = exporter
+
+        // Get source URL
+        guard let urlAsset = sourceAsset as? AVURLAsset else {
+            throw QuickMotionError.exportFailed(reason: "Source must be a file URL for FFmpeg export")
+        }
+
+        let duration = try await sourceAsset.load(.duration)
+        let durationSeconds = CMTimeGetSeconds(duration)
+
+        state = .exporting(progress: 0)
+        startProgressTimer()
+
+        do {
+            try await exporter.export(
+                inputURL: urlAsset.url,
+                to: outputURL,
+                speedMultiplier: speedMultiplier,
+                duration: durationSeconds
+            ) { [weak self] progress in
+                self?.fractionComplete = progress
+                self?.state = .exporting(progress: progress)
+            }
+
+            stopProgressTimer()
+            fractionComplete = 1.0
+            stopSecurityScopedAccess()
+            state = .completed(url: outputURL)
+
+        } catch {
+            stopProgressTimer()
+            cleanupOnFailure()
+            stopSecurityScopedAccess()
+            state = .failed(error: error.localizedDescription)
+        }
+
+        self.ffmpegExporter = nil
+    }
+
     /// Cancels the export operation
     public func cancel() {
         stopProgressTimer()
         exportSession?.cancelExport()
         frameDecimationExporter?.cancel()
+        sampleBufferExporter?.cancel()
+        passthroughExporter?.cancel()
+        ffmpegExporter?.cancel()
         state = .cancelled
     }
 

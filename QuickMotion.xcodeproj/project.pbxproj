@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		232D0C6B2F29073100DD3823 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 232D0C6A2F29073100DD3823 /* Sparkle */; };
+		232D0C6B2F29073100DD3823 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 232D0C6A2F29073100DD3823 /* Sparkle */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		8B90D1482DEDD44A00FBD189 /* QuickMotionFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 8B90D1472DEDD44A00FBD189 /* QuickMotionFeature */; };
 /* End PBXBuildFile section */
 

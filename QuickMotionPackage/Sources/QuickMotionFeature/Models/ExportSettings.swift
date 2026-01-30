@@ -232,12 +232,20 @@ extension ExportSettings {
 // MARK: - Export Method Selection
 
 extension ExportSettings {
-    /// Determines whether frame decimation export should be used
-    /// Frame decimation is faster for high-speed timelapses (speed > 2x)
-    /// because it drops frames instead of processing all frames
-    public func shouldUseFrameDecimation(speedMultiplier: Double) -> Bool {
-        // Frame decimation is beneficial for speed > 2x
-        // Below 2x, the traditional scaleTimeRange is fine
+    /// Determines whether to use the fast sample buffer exporter
+    ///
+    /// The SampleBufferExporter uses AVAssetReader/Writer with frame skipping:
+    /// - Hardware-accelerated decoding of ALL frames (fast on Apple Silicon)
+    /// - Only ENCODES every Nth frame (the slow part)
+    /// - At 16x speed, encodes 1/16th of frames = ~16x faster export
+    ///
+    /// This is used for speed > 2x. Below 2x, standard export is fine.
+    public func shouldUseSampleBufferExporter(speedMultiplier: Double) -> Bool {
         return speedMultiplier > 2.0
+    }
+
+    /// Legacy: kept for backwards compatibility but no longer used
+    public func shouldUseFrameDecimation(speedMultiplier: Double) -> Bool {
+        return false
     }
 }
