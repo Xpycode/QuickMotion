@@ -21,6 +21,7 @@ MACOSX_DEPLOYMENT_TARGET = 14.0
 // Info PLIST
 // ==========================================
 GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_KEY_NSHumanReadableCopyright = © 2025 Luce & Sumbrarum. All rights reserved.
 
 // ==========================================
 // Asset Catalog
@@ -38,3 +39,8 @@ CODE_SIGN_ENTITLEMENTS = Config/QuickMotion.entitlements
 // ==========================================
 INFOPLIST_KEY_SUFeedURL = https://raw.githubusercontent.com/Xpycode/QuickMotion/main/appcast.xml
 INFOPLIST_KEY_SUPublicEDKey = o388Mk7QoQjHQ7PBDGrTQ13HkqvO1nyzkfcnmfVumUQ=
+
+// ==========================================
+// Framework Search Paths
+// ==========================================
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks

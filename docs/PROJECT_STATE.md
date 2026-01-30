@@ -9,8 +9,8 @@
 
 ## Current Position
 - **Phase:** implementation
-- **Focus:** Polish and bug fixes
-- **Status:** Multiple concurrent exports, fixed permission errors
+- **Focus:** Ship blockers complete
+- **Status:** About window + Sparkle updates working
 - **Last updated:** 2026-01-31
 
 ## Progress
