@@ -9,9 +9,9 @@
 
 ## Current Position
 - **Phase:** implementation
-- **Focus:** Phase 4 Polish - format testing, final polish
-- **Status:** Window position persistence, error handling complete
-- **Last updated:** 2026-01-27
+- **Focus:** Architecture refactoring complete
+- **Status:** Wave 3 complete - VideoPlayerService, VideoDropHandler, QuickMotionError integrated
+- **Last updated:** 2026-01-30
 
 ## Progress
 ```
@@ -23,7 +23,7 @@
 | 1. Skeleton | **done** | 4/4 |
 | 2. Preview Engine | **done** | 4/4 |
 | 3. Export | **done** | 4/4 |
-| 4. Polish | **in progress** | 4/5 |
+| 4. Polish | **in progress** | 5/5 |
 | 5. Nice-to-haves | pending | 0/3 |
 
 ## Tech Stack
@@ -55,11 +55,13 @@ None
 ## Key Files
 - `Models/TimelapseProject.swift` - Core project model
 - `Models/ExportSettings.swift` - Export configuration (quality, resolution, fps)
-- `ViewModels/AppState.swift` - App state + AVPlayer
+- `Models/QuickMotionError.swift` - Typed errors with recovery suggestions
+- `Services/VideoPlayerService.swift` - Player abstraction protocol
+- `Services/AVPlayerService.swift` - AVPlayer implementation
+- `Utilities/VideoDropHandler.swift` - Unified video drop handling
+- `ViewModels/AppState.swift` - App state (delegates to AVPlayerService)
 - `ViewModels/ExportSession.swift` - Export state machine + AVAssetExportSession
 - `Views/ContentView.swift` - Main UI
-- `Views/Export/ExportWindow.swift` - Export window container
-- `Views/Export/ExportWindowController.swift` - NSWindow management
 
 ## Reference
 - Similar app: GlueMotion (photos → timelapse)
