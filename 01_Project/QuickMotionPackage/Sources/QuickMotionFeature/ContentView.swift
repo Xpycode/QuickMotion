@@ -1,6 +1,13 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+// MARK: - Notification Names (for menu commands)
+
+public extension Notification.Name {
+    static let openFile = Notification.Name("openFile")
+    static let exportFile = Notification.Name("exportFile")
+}
+
 /// Main application view
 public struct ContentView: View {
     @State private var appState = AppState()
@@ -43,6 +50,14 @@ public struct ContentView: View {
         .focusable()
         .focusEffectDisabled()  // Hide blue focus ring
         .windowFrameAutosaveName("MainWindow")
+        .onReceive(NotificationCenter.default.publisher(for: .openFile)) { _ in
+            openFilePicker()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .exportFile)) { _ in
+            if appState.hasVideo {
+                openExportWindow()
+            }
+        }
         .onKeyPress { keyPress in
             guard appState.hasVideo else { return .ignored }
 
@@ -214,6 +229,23 @@ public struct ContentView: View {
 
     private func fileSize(for url: URL) -> Int64 {
         (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
+    }
+
+    // MARK: - File Picker
+
+    private func openFilePicker() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = VideoDropHandler.allowedContentTypes
+        panel.message = "Select a video file"
+
+        if panel.runModal() == .OK, let url = panel.url {
+            Task {
+                await appState.loadVideo(from: url)
+            }
+        }
     }
 
     // MARK: - Drop Handling

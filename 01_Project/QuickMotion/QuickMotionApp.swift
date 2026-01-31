@@ -14,8 +14,30 @@ struct QuickMotionApp: App {
             CommandGroup(after: .appInfo) {
                 CheckForUpdatesView(updater: updaterController.updaterController.updater)
             }
+
+            // File menu commands
+            CommandGroup(after: .newItem) {
+                Button("Open...") {
+                    NotificationCenter.default.post(name: .openFile, object: nil)
+                }
+                .keyboardShortcut("o", modifiers: .command)
+
+                Divider()
+
+                Button("Export...") {
+                    NotificationCenter.default.post(name: .exportFile, object: nil)
+                }
+                .keyboardShortcut("e", modifiers: .command)
+            }
         }
     }
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let openFile = Notification.Name("openFile")
+    static let exportFile = Notification.Name("exportFile")
 }
 
 /// Menu item that triggers Sparkle's update check
