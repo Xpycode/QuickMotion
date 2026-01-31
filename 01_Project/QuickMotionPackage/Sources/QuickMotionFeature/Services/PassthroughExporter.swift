@@ -138,7 +138,7 @@ public final class PassthroughExporter: @unchecked Sendable {
                     guard let self = self, !self.cancelled else {
                         capturedReader.cancelReading()
                         capturedWriter.cancelWriting()
-                        continuation.resume(throwing: QuickMotionError.exportFailed(reason: "Cancelled"))
+                        continuation.resume(throwing: QuickMotionError.cancelled)
                         return
                     }
 
@@ -147,9 +147,11 @@ public final class PassthroughExporter: @unchecked Sendable {
                     if isKF { keyframesFound += 1 }
 
                     // Log periodically
+                    #if DEBUG
                     if totalSamplesRead % 10000 == 0 {
                         print("[Passthrough] Read \(totalSamplesRead) samples, found \(keyframesFound) keyframes")
                     }
+                    #endif
 
                     guard isKF else {
                         continue // Skip non-keyframes
@@ -171,7 +173,7 @@ public final class PassthroughExporter: @unchecked Sendable {
                         if self.cancelled {
                             capturedReader.cancelReading()
                             capturedWriter.cancelWriting()
-                            continuation.resume(throwing: QuickMotionError.exportFailed(reason: "Cancelled"))
+                            continuation.resume(throwing: QuickMotionError.cancelled)
                             return
                         }
                         Thread.sleep(forTimeInterval: 0.001)
@@ -217,7 +219,9 @@ public final class PassthroughExporter: @unchecked Sendable {
                     }
                 }
 
+                #if DEBUG
                 print("[Passthrough] DONE: Read \(totalSamplesRead) total samples, found \(keyframesFound) keyframes, wrote \(framesWritten) frames")
+                #endif
 
                 if capturedReader.status == .failed {
                     continuation.resume(throwing: QuickMotionError.exportFailed(reason: capturedReader.error?.localizedDescription ?? "Read failed"))

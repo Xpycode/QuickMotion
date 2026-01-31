@@ -7,6 +7,7 @@ public enum QuickMotionError: LocalizedError {
     case invalidTimeRange(String)
     case unsupportedFormat(String)
     case insufficientDiskSpace(required: Int64, available: Int64)
+    case cancelled
 
     public var errorDescription: String? {
         switch self {
@@ -30,6 +31,9 @@ public enum QuickMotionError: LocalizedError {
             let requiredMB = Double(required) / 1_048_576
             let availableMB = Double(available) / 1_048_576
             return String(format: "Insufficient disk space. Required: %.1f MB, Available: %.1f MB", requiredMB, availableMB)
+
+        case .cancelled:
+            return "Export was cancelled"
         }
     }
 
@@ -50,6 +54,9 @@ public enum QuickMotionError: LocalizedError {
         case .insufficientDiskSpace(let required, _):
             let requiredMB = Double(required) / 1_048_576
             return String(format: "Free up at least %.1f MB of disk space and try again.", requiredMB)
+
+        case .cancelled:
+            return nil
         }
     }
 }

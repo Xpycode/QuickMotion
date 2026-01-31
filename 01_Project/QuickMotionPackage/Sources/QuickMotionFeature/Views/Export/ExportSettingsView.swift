@@ -32,6 +32,11 @@ public struct ExportSettingsView: View {
         self.onExport = onExport
     }
 
+    /// Whether passthrough mode is forced (speed > 2x)
+    private var passthroughForced: Bool {
+        speedMultiplier > 2.0
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Output filename row
@@ -47,6 +52,13 @@ public struct ExportSettingsView: View {
             // Audio option
             Toggle("Include audio (sped up)", isOn: $settings.includeAudio)
                 .toggleStyle(.checkbox)
+                .disabled(passthroughForced)
+
+            if passthroughForced {
+                Text("Audio unavailable: High-speed exports use keyframe-only mode")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             Divider()
 
@@ -106,6 +118,7 @@ public struct ExportSettingsView: View {
             }
             .pickerStyle(.radioGroup)
             .labelsHidden()
+            .disabled(passthroughForced)
         }
     }
 
@@ -160,6 +173,7 @@ public struct ExportSettingsView: View {
                     }
                     .labelsHidden()
                     .frame(width: 150)
+                    .disabled(passthroughForced)
                 }
 
                 // Note: Resolution only applies to HEVC quality
