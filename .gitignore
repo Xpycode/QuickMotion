@@ -71,8 +71,11 @@ fastlane/test_output
 # ML/Embedding caches
 .fastembed_cache/
 
-# Export artifacts
-Icon Exports/
+# Build exports (DMGs, apps)
+04_Exports/
+
+# Design exports (generated icons)
+02_Design/Exports/
 
 # Code review artifacts
 code-review--*.md

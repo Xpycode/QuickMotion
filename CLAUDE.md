@@ -39,14 +39,25 @@ Export: idle → exporting (with progress) → done/failed
 - **Logarithmic speed slider** - Fine control at useful 2x-20x range
 - **No sandbox initially** - Simpler; add for MAS later
 
+## Folder Structure
+```
+QuickMotion/
+├── 01_Project/          ← Xcode project, source code
+├── 02_Design/           ← Icon source files
+├── 03_Screenshots/      ← App Store screenshots
+├── 04_Exports/          ← Built DMGs (gitignored)
+├── docs/                ← Directions documentation
+└── scripts/             ← Build/utility scripts
+```
+
 ## Project Documentation
 Full docs in `/docs` - see `PROJECT_STATE.md` for current status.
 
 ## Building
 ```bash
 # Open in Xcode
-open QuickMotion.xcodeproj
+open 01_Project/QuickMotion.xcworkspace
 
 # Or build from command line
-xcodebuild -scheme QuickMotion -configuration Debug build
+xcodebuild -workspace 01_Project/QuickMotion.xcworkspace -scheme QuickMotion -configuration Debug build
 ```
