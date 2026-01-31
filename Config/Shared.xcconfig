@@ -29,10 +29,11 @@ INFOPLIST_KEY_NSHumanReadableCopyright = © 2025 Luce & Sumbrarum. All rights re
 ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 
 // ==========================================
-// Entitlements
+// Entitlements & Code Signing
 // ==========================================
 // AI agents can modify Config/QuickMotion.entitlements to add capabilities
 CODE_SIGN_ENTITLEMENTS = Config/QuickMotion.entitlements
+ENABLE_HARDENED_RUNTIME = YES
 
 // ==========================================
 // Sparkle Auto-Updates
