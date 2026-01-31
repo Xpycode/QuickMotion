@@ -8,14 +8,14 @@
 - **Started:** 2025-01-25
 
 ## Current Position
-- **Phase:** implementation
-- **Focus:** Ship blockers complete
-- **Status:** About window + Sparkle updates working
+- **Phase:** shipping
+- **Focus:** Ship!
+- **Status:** Notarized, folder reorg done, keyboard shortcuts added
 - **Last updated:** 2026-01-31
 
 ## Progress
 ```
-[################....] 80% - Phase 4 of 5
+[##################..] 90% - Phase 4 done, shipping
 ```
 
 | Phase | Status | Tasks |
@@ -23,7 +23,7 @@
 | 1. Skeleton | **done** | 4/4 |
 | 2. Preview Engine | **done** | 4/4 |
 | 3. Export | **done** | 4/4 |
-| 4. Polish | **in progress** | 5/5 |
+| 4. Polish | **done** | 5/5 |
 | 5. Nice-to-haves | pending | 0/3 |
 
 ## Tech Stack
@@ -33,6 +33,9 @@
 - **Distribution:** Notarized direct download, potential MAS
 
 ## Active Decisions
+- 2026-01-31: Keyboard shortcuts ⌘O (Open), ⌘E (Export) via NotificationCenter
+- 2026-01-31: Project reorganized with numbered folders (01_Project, 02_Design, etc.)
+- 2026-01-31: Hardened Runtime enabled for notarization
 - 2026-01-27: Window positions persist via NSWindow.setFrameAutosaveName
 - 2026-01-27: Pre-flight disk space check with 10% buffer + friendly error messages
 - 2026-01-26: NSSavePanel required for export (sandbox only grants read on drop)
@@ -52,19 +55,16 @@
 - ~~2025-01-25: TimelineView at 24fps~~ (replaced by native AVPlayerView)
 
 ## Blockers
-None
+- None! Ready to ship.
 
 ## Key Files
+All source in `01_Project/QuickMotionPackage/Sources/QuickMotionFeature/`:
 - `Models/TimelapseProject.swift` - Core project model
 - `Models/ExportSettings.swift` - Export configuration (quality, resolution, fps)
-- `Models/QuickMotionError.swift` - Typed errors with recovery suggestions
-- `Services/VideoPlayerService.swift` - Player abstraction protocol
-- `Services/AVPlayerService.swift` - AVPlayer implementation
-- `Services/PassthroughExporter.swift` - Fast export via keyframe passthrough (no re-encode)
-- `Utilities/VideoDropHandler.swift` - Unified video drop handling
+- `Services/PassthroughExporter.swift` - Fast export via keyframe passthrough
 - `ViewModels/AppState.swift` - App state (delegates to AVPlayerService)
-- `ViewModels/ExportSession.swift` - Export state machine, routes to decimation/legacy
-- `Views/ContentView.swift` - Main UI
+- `ViewModels/ExportSession.swift` - Export state machine
+- `Views/ContentView.swift` - Main UI + keyboard shortcuts
 
 ## Reference
 - Similar app: GlueMotion (photos → timelapse)

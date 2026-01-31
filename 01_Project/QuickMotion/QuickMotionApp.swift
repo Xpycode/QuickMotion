@@ -33,12 +33,7 @@ struct QuickMotionApp: App {
     }
 }
 
-// MARK: - Notification Names
-
-extension Notification.Name {
-    static let openFile = Notification.Name("openFile")
-    static let exportFile = Notification.Name("exportFile")
-}
+// Note: Notification.Name.openFile and .exportFile are defined in QuickMotionFeature
 
 /// Menu item that triggers Sparkle's update check
 struct CheckForUpdatesView: View {

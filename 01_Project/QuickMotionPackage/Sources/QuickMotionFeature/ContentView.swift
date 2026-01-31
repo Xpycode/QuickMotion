@@ -51,11 +51,17 @@ public struct ContentView: View {
         .focusEffectDisabled()  // Hide blue focus ring
         .windowFrameAutosaveName("MainWindow")
         .onReceive(NotificationCenter.default.publisher(for: .openFile)) { _ in
-            openFilePicker()
+            // Must run on MainActor for NSOpenPanel
+            Task { @MainActor in
+                openFilePicker()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .exportFile)) { _ in
             if appState.hasVideo {
-                openExportWindow()
+                // Must run on MainActor for @MainActor-isolated ExportWindowController
+                Task { @MainActor in
+                    openExportWindow()
+                }
             }
         }
         .onKeyPress { keyPress in
