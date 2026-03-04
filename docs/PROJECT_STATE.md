@@ -8,14 +8,14 @@
 - **Started:** 2025-01-25
 
 ## Current Position
-- **Phase:** shipping
-- **Focus:** Ship!
-- **Status:** Notarized, folder reorg done, keyboard shortcuts added
-- **Last updated:** 2026-01-31
+- **Phase:** shipped
+- **Focus:** Done — v1.0.3 released
+- **Status:** Notarized, on GitHub with DMG + Sparkle auto-updates working, MIT licensed
+- **Last updated:** 2026-03-04
 
 ## Progress
 ```
-[##################..] 90% - Phase 4 done, shipping
+[####################] 95% - Shipped v1.0.3
 ```
 
 | Phase | Status | Tasks |
@@ -29,10 +29,15 @@
 ## Tech Stack
 - **Platform:** macOS 14+, SwiftUI
 - **Video:** AVFoundation (AVPlayer.rate for preview)
-- **Export:** PassthroughExporter (keyframes, no re-encode) for speed >2x, AVAssetExportSession for ≤2x
-- **Distribution:** Notarized direct download, potential MAS
+- **Export:** PassthroughExporter (keyframes) when defaults kept at speed >2x; AVAssetExportSession (re-encode) when user picks ProRes/resolution/audio
+- **Distribution:** Notarized direct download (GitHub releases), MIT license
 
 ## Active Decisions
+- 2026-03-04: Sparkle SUFeedURL requires real Info.plist — INFOPLIST_KEY_ prefix only works for Apple keys
+- 2026-03-04: Export controls always enabled — passthrough only when user keeps defaults (Fast HEVC + Match Source + no audio)
+- 2026-03-04: Font rule: `.monospacedDigit()` for numeric displays, `.monospaced` for code only
+- 2026-03-04: Duration format with explicit units ("58m 31s", "35s") everywhere
+- 2026-03-04: MIT license, copyright Luces Umbrarum
 - 2026-01-31: Keyboard shortcuts ⌘O (Open), ⌘E (Export) via NotificationCenter
 - 2026-01-31: Project reorganized with numbered folders (01_Project, 02_Design, etc.)
 - 2026-01-31: Hardened Runtime enabled for notarization
@@ -55,7 +60,8 @@
 - ~~2025-01-25: TimelineView at 24fps~~ (replaced by native AVPlayerView)
 
 ## Blockers
-- None! Ready to ship.
+- None. Shipped.
+- Note: `xcrun notarytool store-credentials notarytool` not yet set up for CLI notarization
 
 ## Key Files
 All source in `01_Project/QuickMotionPackage/Sources/QuickMotionFeature/`:
