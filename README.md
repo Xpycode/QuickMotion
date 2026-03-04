@@ -35,16 +35,16 @@
 </p>
 
 <p align="center">
-  <img src="03_Screenshots/QM%20Export%20Dialogue.png" alt="Export Dialog" width="350">
+  <img src="03_Screenshots/QM%20Export%20Dialogue%20FAST.png" alt="Export Dialog" width="350">
   &nbsp;
-  <img src="03_Screenshots/QM%20Export%20Status%201.png" alt="Export Progress" width="350">
+  <img src="03_Screenshots/QM%20Export%20StatusHEVC%202.png" alt="Export Progress" width="350">
   &nbsp;
-  <img src="03_Screenshots/QM%20Export%20Status%202%20COMPLETE.png" alt="Export Complete" width="350">
+  <img src="03_Screenshots/QM%20Export%20StatusHEVC%203%20COMPLETE.png" alt="Export Complete" width="350">
 </p>
 
 ## Install
 
-Download `QuickMotion-1.0.2.dmg` from the [releases page](https://github.com/Xpycode/QuickMotion/releases/latest), open it, and drag QuickMotion to your Applications folder.
+Download `QuickMotion-1.0.3.dmg` from the [releases page](https://github.com/Xpycode/QuickMotion/releases/latest), open it, and drag QuickMotion to your Applications folder.
 
 ### Requirements
 - macOS 14.0+
