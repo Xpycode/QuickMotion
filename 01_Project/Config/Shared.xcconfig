@@ -21,7 +21,7 @@ MACOSX_DEPLOYMENT_TARGET = 14.0
 // Info PLIST
 // ==========================================
 GENERATE_INFOPLIST_FILE = YES
-INFOPLIST_KEY_NSHumanReadableCopyright = © 2025 Luce & Sumbrarum. All rights reserved.
+INFOPLIST_KEY_NSHumanReadableCopyright = © 2025 Luces Umbrarum. All rights reserved.
 
 // ==========================================
 // Asset Catalog
