@@ -36,10 +36,9 @@ CODE_SIGN_ENTITLEMENTS = Config/QuickMotion.entitlements
 ENABLE_HARDENED_RUNTIME = YES
 
 // ==========================================
-// Sparkle Auto-Updates
+// Sparkle Auto-Updates (keys in Config/Info.plist)
 // ==========================================
-INFOPLIST_KEY_SUFeedURL = https://raw.githubusercontent.com/Xpycode/QuickMotion/main/appcast.xml
-INFOPLIST_KEY_SUPublicEDKey = o388Mk7QoQjHQ7PBDGrTQ13HkqvO1nyzkfcnmfVumUQ=
+INFOPLIST_FILE = Config/Info.plist
 
 // ==========================================
 // Framework Search Paths

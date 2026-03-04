@@ -45,11 +45,11 @@ mkdir -p "$RELEASES_DIR"
 echo ""
 echo "📦 Step 1: Creating archive..."
 xcodebuild archive \
-    -project "$PROJECT_NAME.xcodeproj" \
+    -workspace "01_Project/$PROJECT_NAME.xcworkspace" \
     -scheme "$SCHEME" \
     -archivePath "$ARCHIVE_PATH" \
     -configuration Release \
-    CODE_SIGN_IDENTITY="Developer ID Application" \
+    -destination "generic/platform=macOS" \
     | grep -E "(Archive|error:|warning:)" || true
 
 if [ ! -d "$ARCHIVE_PATH" ]; then
@@ -88,12 +88,20 @@ if [ ! -d "$APP_PATH" ]; then
 fi
 echo "✅ App exported"
 
-# Step 3: Notarize (optional but recommended)
+# Step 3: Create ZIP for notarization and Sparkle
 echo ""
-echo "🔏 Step 3: Notarizing..."
+echo "📁 Step 3: Creating ZIP..."
+cd "$EXPORT_PATH"
+ditto -c -k --keepParent "$PROJECT_NAME.app" "$ZIP_PATH"
+cd "$PROJECT_ROOT"
+echo "✅ ZIP created: $ZIP_PATH"
+
+# Step 4: Notarize (optional but recommended)
+echo ""
+echo "🔏 Step 4: Notarizing..."
 echo "   (This may take a few minutes)"
 
-xcrun notarytool submit "$APP_PATH" \
+xcrun notarytool submit "$ZIP_PATH" \
     --keychain-profile "notarytool" \
     --wait 2>&1 | tee "$PROJECT_ROOT/build/notarize.log" || {
     echo "⚠️  Notarization failed or profile not set up."
@@ -101,16 +109,16 @@ xcrun notarytool submit "$APP_PATH" \
     echo "   Continuing without notarization..."
 }
 
-# Staple the notarization ticket
+# Staple the notarization ticket to the app
 xcrun stapler staple "$APP_PATH" 2>/dev/null || echo "   (Stapling skipped)"
 
-# Step 4: Create ZIP
-echo ""
-echo "📁 Step 4: Creating ZIP..."
+# Re-create ZIP with stapled app
+echo "   Re-creating ZIP with stapled ticket..."
+rm -f "$ZIP_PATH"
 cd "$EXPORT_PATH"
 ditto -c -k --keepParent "$PROJECT_NAME.app" "$ZIP_PATH"
 cd "$PROJECT_ROOT"
-echo "✅ ZIP created: $ZIP_PATH"
+echo "✅ ZIP updated with stapled app"
 
 # Step 5: Sign for Sparkle
 echo ""
