@@ -44,7 +44,7 @@
 
 ## Install
 
-Download `QuickMotion-1.0.1.dmg` from the [releases page](https://github.com/Xpycode/QuickMotion/releases/latest), open it, and drag QuickMotion to your Applications folder.
+Download `QuickMotion-1.0.2.dmg` from the [releases page](https://github.com/Xpycode/QuickMotion/releases/latest), open it, and drag QuickMotion to your Applications folder.
 
 ### Requirements
 - macOS 14.0+
