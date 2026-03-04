@@ -32,9 +32,9 @@ public struct ExportSettingsView: View {
         self.onExport = onExport
     }
 
-    /// Whether passthrough mode is forced (speed > 2x)
-    private var passthroughForced: Bool {
-        speedMultiplier > 2.0
+    /// Whether passthrough export would be used with current settings
+    private var willUsePassthrough: Bool {
+        ExportSettings.canUsePassthrough(settings: settings, speedMultiplier: speedMultiplier)
     }
 
     public var body: some View {
@@ -52,10 +52,9 @@ public struct ExportSettingsView: View {
             // Audio option
             Toggle("Include audio (sped up)", isOn: $settings.includeAudio)
                 .toggleStyle(.checkbox)
-                .disabled(passthroughForced)
 
-            if passthroughForced {
-                Text("Audio unavailable: High-speed exports use keyframe-only mode")
+            if willUsePassthrough {
+                Text("Audio unavailable in passthrough mode (keyframe-only export)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -118,7 +117,12 @@ public struct ExportSettingsView: View {
             }
             .pickerStyle(.radioGroup)
             .labelsHidden()
-            .disabled(passthroughForced)
+
+            if !willUsePassthrough && speedMultiplier > 2.0 {
+                Text("Re-encoding required — export will be slower than default settings")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
         }
     }
 
@@ -173,7 +177,6 @@ public struct ExportSettingsView: View {
                     }
                     .labelsHidden()
                     .frame(width: 150)
-                    .disabled(passthroughForced)
                 }
 
                 // Note: Resolution only applies to HEVC quality
@@ -203,11 +206,8 @@ public struct ExportSettingsView: View {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
 
-        // Passthrough export (speed > 2x) requires .mov container
-        // Force .mov extension in that case, regardless of quality setting
-        let requiresMov = speedMultiplier > 2.0
-        if requiresMov {
-            // Ensure filename has .mov extension for passthrough
+        // Passthrough requires .mov container
+        if willUsePassthrough {
             let baseName = (outputFileName as NSString).deletingPathExtension
             panel.nameFieldStringValue = "\(baseName).mov"
             panel.allowedContentTypes = [.quickTimeMovie]

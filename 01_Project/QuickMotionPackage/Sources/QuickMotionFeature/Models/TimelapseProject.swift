@@ -27,11 +27,24 @@ public struct TimelapseProject: Identifiable {
         public let frameRate: Float
         public let codec: String?
 
-        /// Formatted duration string (e.g., "2:34")
+        /// Formatted duration string (e.g., "2m 34s")
         public var formattedDuration: String {
-            let minutes = Int(duration) / 60
-            let seconds = Int(duration) % 60
-            return String(format: "%d:%02d", minutes, seconds)
+            Self.formatDuration(duration)
+        }
+
+        /// Shared duration formatter
+        static func formatDuration(_ duration: TimeInterval) -> String {
+            let totalSeconds = Int(duration)
+            let hours = totalSeconds / 3600
+            let minutes = (totalSeconds % 3600) / 60
+            let seconds = totalSeconds % 60
+            if hours > 0 {
+                return "\(hours)h \(minutes)m \(seconds)s"
+            } else if minutes > 0 {
+                return "\(minutes)m \(String(format: "%02d", seconds))s"
+            } else {
+                return "\(seconds)s"
+            }
         }
 
         /// Resolution string (e.g., "1920x1080")
@@ -57,12 +70,7 @@ public struct TimelapseProject: Identifiable {
     /// Formatted output duration string
     public var formattedOutputDuration: String? {
         guard let duration = outputDuration else { return nil }
-        if duration < 60 {
-            return String(format: "%.0fs", duration)
-        }
-        let minutes = Int(duration) / 60
-        let seconds = Int(duration) % 60
-        return String(format: "%d:%02d", minutes, seconds)
+        return VideoMetadata.formatDuration(duration)
     }
 }
 

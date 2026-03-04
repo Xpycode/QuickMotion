@@ -218,19 +218,10 @@ public struct ContentView: View {
         }
     }
 
-    /// Formats seconds as "M:SS" or "H:MM:SS"
+    /// Formats seconds as duration string (e.g., "2m 34s")
     private func formatDuration(_ seconds: Double) -> String {
-        guard seconds.isFinite && seconds >= 0 else { return "0:00" }
-        let totalSeconds = Int(seconds)
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let secs = totalSeconds % 60
-
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, secs)
-        } else {
-            return String(format: "%d:%02d", minutes, secs)
-        }
+        guard seconds.isFinite && seconds >= 0 else { return "0s" }
+        return TimelapseProject.VideoMetadata.formatDuration(seconds)
     }
 
     private func fileSize(for url: URL) -> Int64 {

@@ -64,7 +64,7 @@ public struct SpeedSliderView: View {
                     }
 
                 Text(formattedSpeed)
-                    .font(.system(.body, design: .monospaced))
+                    .font(.body.monospacedDigit())
                     .frame(width: 50, alignment: .trailing)
                     .contentTransition(.numericText())
                     .animation(.easeInOut(duration: 0.15), value: formattedSpeed)

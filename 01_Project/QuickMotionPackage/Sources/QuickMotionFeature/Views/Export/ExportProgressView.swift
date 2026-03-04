@@ -26,20 +26,20 @@ struct ExportProgressView: View {
             // Progress percentage
             if !isPreparing {
                 Text("\(Int(progress * 100))%")
-                    .font(.system(.body, design: .monospaced))
+                    .font(.body.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
 
             // Time display
             HStack {
                 Text("Elapsed: \(elapsedTime)")
-                    .font(.system(.body, design: .monospaced))
+                    .font(.body.monospacedDigit())
 
                 Spacer()
 
                 if let remaining = remainingTime {
                     Text("Remaining: ~\(remaining)")
-                        .font(.system(.body, design: .monospaced))
+                        .font(.body.monospacedDigit())
                 }
             }
             .foregroundStyle(.secondary)

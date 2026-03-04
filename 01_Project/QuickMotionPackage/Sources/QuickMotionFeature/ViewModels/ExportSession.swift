@@ -101,7 +101,8 @@ public final class ExportSession: Identifiable {
 
         // Normalize output URL for passthrough (requires .mov)
         // Must happen BEFORE startAccessingSecurityScopedResource()
-        if speedMultiplier > 2.0 && outputURL.pathExtension.lowercased() != "mov" {
+        let usePassthrough = ExportSettings.canUsePassthrough(settings: settings, speedMultiplier: speedMultiplier)
+        if usePassthrough && outputURL.pathExtension.lowercased() != "mov" {
             outputURL = outputURL.deletingPathExtension().appendingPathExtension("mov")
         }
 
@@ -117,21 +118,19 @@ public final class ExportSession: Identifiable {
             )
             try checkDiskSpace(estimatedSize: estimatedSize)
 
-            // Choose export method based on speed
-            // For speed > 2x, use passthrough (keyframes only, no decode/encode)
-            // This is I/O bound but much faster than re-encoding
-            if speedMultiplier > 2.0 {
+            // Choose export method based on settings
+            // Passthrough: keyframes only, no decode/encode — fast but limited
+            // Re-encode: supports ProRes, resolution changes, audio
+            if usePassthrough {
                 #if DEBUG
-                print("[Export] Using Passthrough exporter (speed > 2x)")
+                print("[Export] Using Passthrough exporter (keyframe-only)")
                 #endif
                 try await exportWithPassthrough()
                 return
             }
             #if DEBUG
-            print("[Export] Using legacy AVAssetExportSession (speed <= 2x)")
+            print("[Export] Using AVAssetExportSession (re-encode)")
             #endif
-
-            // Fall through to legacy AVAssetExportSession path for speed <= 2x
 
             // Create composition and configure export
             let (_, export) = try await prepareExport()

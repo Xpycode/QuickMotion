@@ -232,20 +232,19 @@ extension ExportSettings {
 // MARK: - Export Method Selection
 
 extension ExportSettings {
-    /// Determines whether to use the fast sample buffer exporter
+    /// Determines whether passthrough export can be used.
     ///
-    /// The SampleBufferExporter uses AVAssetReader/Writer with frame skipping:
-    /// - Hardware-accelerated decoding of ALL frames (fast on Apple Silicon)
-    /// - Only ENCODES every Nth frame (the slow part)
-    /// - At 16x speed, encodes 1/16th of frames = ~16x faster export
+    /// Passthrough copies only keyframes (no decode/encode) — extremely fast but:
+    /// - Only works with Fast (HEVC) quality at Match Source resolution
+    /// - Cannot include audio
+    /// - Output is always .mov
     ///
-    /// This is used for speed > 2x. Below 2x, standard export is fine.
-    public func shouldUseSampleBufferExporter(speedMultiplier: Double) -> Bool {
-        return speedMultiplier > 2.0
-    }
-
-    /// Legacy: kept for backwards compatibility but no longer used
-    public func shouldUseFrameDecimation(speedMultiplier: Double) -> Bool {
-        return false
+    /// When the user picks ProRes, custom resolution, or audio, we must re-encode.
+    public static func canUsePassthrough(settings: ExportSettings, speedMultiplier: Double) -> Bool {
+        guard speedMultiplier > 2.0 else { return false }
+        // Passthrough only when user hasn't requested re-encoding options
+        return settings.quality == .fast
+            && settings.resolution == .match
+            && !settings.includeAudio
     }
 }
