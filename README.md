@@ -1,6 +1,31 @@
-# QuickMotion - macOS App
+# QuickMotion
 
-A modern macOS application using a **workspace + SPM package** architecture for clean separation between app shell and feature code.
+Turn videos into timelapses — drop a video in, adjust speed, preview the result, export. One job done well.
+
+**[Download Latest Release (v1.0.1)](https://github.com/Xpycode/QuickMotion/releases/latest)**
+
+### Features
+- Logarithmic speed slider (2x–100x) with fine control at the low end
+- Real-time preview via AVPlayer
+- Fast passthrough export for speed >2x (no re-encode, I/O bound)
+- Quality presets: Fast (HEVC/.mp4) and Quality (ProRes/.mov)
+- IN/OUT trim points
+- J/K/L playback shortcuts, ⌘O to open, ⌘E to export
+- Multiple concurrent export windows
+- Sparkle auto-updates
+- Notarized and hardened runtime
+
+### Requirements
+- macOS 14.0+
+
+### Install
+Download `QuickMotion-1.0.1.dmg` from the [releases page](https://github.com/Xpycode/QuickMotion/releases/latest), open it, and drag QuickMotion to your Applications folder.
+
+---
+
+## Development
+
+A **workspace + SPM package** architecture for clean separation between app shell and feature code.
 
 ## Project Architecture
 
