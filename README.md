@@ -35,9 +35,11 @@
 </p>
 
 <p align="center">
-  <img src="03_Screenshots/QM%20Export%20Dialogue.png" alt="Export Dialog" width="400">
-  &nbsp;&nbsp;
-  <img src="03_Screenshots/QM%20Export%20Status%201.png" alt="Export Progress" width="400">
+  <img src="03_Screenshots/QM%20Export%20Dialogue.png" alt="Export Dialog" width="350">
+  &nbsp;
+  <img src="03_Screenshots/QM%20Export%20Status%201.png" alt="Export Progress" width="350">
+  &nbsp;
+  <img src="03_Screenshots/QM%20Export%20Status%202%20COMPLETE.png" alt="Export Complete" width="350">
 </p>
 
 ## Install
