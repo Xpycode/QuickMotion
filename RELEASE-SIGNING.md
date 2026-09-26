@@ -56,7 +56,10 @@ candidate folder's `final/`; evidence and harness inputs are in `validation/`.
 The old `*-unnotarized.zip` and its signature metadata are historical inputs;
 never publish them. Only `final/QuickMotion-1.0.4.zip` has the final signature.
 
-**Publication pending:** No GitHub release, production feed, or installed app
-was changed. Before publication, integrate the isolated source branch without
-bringing unfinished 1.1 features into 1.0.4; upload the tested final asset before
-publishing its prepared feed entry. Preserve the existing 1.0.3 asset.
+**Published 2026-09-27:** The isolated repair source was integrated without
+unfinished 1.1 features. The tested final ZIP is the asset on the
+[v1.0.4 release](https://github.com/Xpycode/QuickMotion/releases/tag/v1.0.4),
+and the production appcast now offers it first while retaining 1.0.3. A fresh
+download matched SHA-256
+`14215df3bc9e9044c273978842b16c415447463e5b2bb0ae123115bcb543e53c`.
+No user-installed app was changed by publication.

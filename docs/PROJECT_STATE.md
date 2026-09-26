@@ -9,13 +9,13 @@
 
 ## Current Position
 - **Phase:** shipped
-- **Focus:** Done — v1.0.3 released
-- **Status:** Notarized, on GitHub with DMG + Sparkle auto-updates working, MIT licensed
-- **Last updated:** 2026-03-04
+- **Focus:** v1.0.4 signing repair published; later feature work remains local
+- **Status:** Notarized 1.0.4 ZIP on GitHub; Sparkle feed offers 1.0.4 with a dedicated signing key
+- **Last updated:** 2026-09-27
 
 ## Progress
 ```
-[####################] 95% - Shipped v1.0.3
+[####################] 95% - Shipped v1.0.4
 ```
 
 | Phase | Status | Tasks |
@@ -60,8 +60,7 @@
 - ~~2025-01-25: TimelineView at 24fps~~ (replaced by native AVPlayerView)
 
 ## Blockers
-- None. Shipped.
-- Note: `xcrun notarytool store-credentials notarytool` not yet set up for CLI notarization
+- The configured `notarytool` profile failed authentication on M4 Pro; the existing API-key route worked for 1.0.4.
 
 ## Key Files
 All source in `01_Project/QuickMotionPackage/Sources/QuickMotionFeature/`:
