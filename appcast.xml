@@ -9,6 +9,20 @@
         <!-- Add new releases here (newest first) -->
 
         <item>
+            <title>Version 1.0.4</title>
+            <pubDate>Sat, 26 Sep 2026 19:57:14 +0000</pubDate>
+            <sparkle:version>104</sparkle:version>
+            <sparkle:shortVersionString>1.0.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/Xpycode/QuickMotion/releases/download/v1.0.4/QuickMotion-1.0.4.zip"
+                sparkle:edSignature="4Un7o8T43wkObYqAKqkiByh14qEicQOXfTOPxa99uCH4HqALD/H3rNT2xjIv4bYMTJ7MwUQXZBDrM4p36bzrAg=="
+                length="10337139"
+                type="application/octet-stream"
+            />
+        </item>
+
+        <item>
             <title>Version 1.0.3</title>
             <pubDate>Tue, 04 Mar 2026 15:30:00 +0100</pubDate>
             <sparkle:version>103</sparkle:version>
