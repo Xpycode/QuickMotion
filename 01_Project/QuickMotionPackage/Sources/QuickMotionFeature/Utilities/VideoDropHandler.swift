@@ -19,6 +19,7 @@ public enum VideoDropHandler {
     /// Extracts a video URL from drop providers
     /// - Parameter providers: NSItemProvider array from drop operation
     /// - Returns: First valid video URL found, or nil
+    @MainActor
     public static func loadURL(from providers: [NSItemProvider]) async -> URL? {
         guard let provider = providers.first else { return nil }
 
@@ -36,6 +37,7 @@ public enum VideoDropHandler {
     // MARK: - Private Helpers
 
     /// Loads URL from a provider for a specific type identifier
+    @MainActor
     private static func loadURL(from provider: NSItemProvider, typeIdentifier: String) async throws -> URL? {
         try await withCheckedThrowingContinuation { continuation in
             provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, error in

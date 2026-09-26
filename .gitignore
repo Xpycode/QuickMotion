@@ -79,3 +79,7 @@ fastlane/test_output
 
 # Code review artifacts
 code-review--*.md
+# Release staging and Python cache
+build-release.*/
+releases/*.zip
+__pycache__/
